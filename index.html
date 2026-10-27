@@ -1,0 +1,131 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Rack Planner</title>
+<link rel="stylesheet" href="style.css" />
+</head>
+<body>
+
+<header class="topbar">
+  <div class="brand">
+    <span class="mark"></span>
+    <div>
+      <h1>Rack Planner</h1>
+      <p id="dbStatus" class="sub">&nbsp;</p>
+    </div>
+  </div>
+  <button id="themeBtn" class="ghost" type="button" title="Light or dark">Dark</button>
+</header>
+
+<main>
+  <aside class="panel">
+
+    <section class="group">
+      <div class="group-head">
+        <h2>Box</h2>
+        <select id="unit" class="unit" title="Unit for the sizes you type">
+          <option value="cm">cm</option>
+          <option value="mm">mm</option>
+          <option value="in">in</option>
+        </select>
+      </div>
+
+      <label class="field">
+        <span>Saved sizes</span>
+        <div class="row">
+          <select id="presetSel"><option value="">&mdash; none &mdash;</option></select>
+          <button id="presetDel" class="ghost small" type="button" title="Delete this preset">&times;</button>
+        </div>
+      </label>
+
+      <div class="dims">
+        <label><span>Length</span><input id="boxL" type="number" min="0.1" step="0.1" value="40" /></label>
+        <label><span>Width</span><input id="boxW" type="number" min="0.1" step="0.1" value="30" /></label>
+        <label><span>Height</span><input id="boxH" type="number" min="0.1" step="0.1" value="25" /></label>
+      </div>
+      <button id="presetSave" class="ghost small wide" type="button">Save this size</button>
+    </section>
+
+    <section class="group">
+      <h2>Rack</h2>
+      <label class="field">
+        <span>Which rack</span>
+        <div class="row">
+          <select id="rackSel"></select>
+          <button id="rackDel" class="ghost small" type="button" title="Delete this rack">&times;</button>
+        </div>
+      </label>
+      <div class="dims">
+        <label><span>Length</span><input id="rackL" type="number" min="1" step="0.1" value="240" /></label>
+        <label><span>Width</span><input id="rackW" type="number" min="1" step="0.1" value="120" /></label>
+        <label><span>Height</span><input id="rackH" type="number" min="1" step="0.1" value="85" /></label>
+      </div>
+      <button id="rackSave" class="ghost small wide" type="button">Save this rack</button>
+    </section>
+
+    <section class="group">
+      <h2>Rules</h2>
+      <label class="field">
+        <span>Turning the box</span>
+        <select id="mode">
+          <option value="any">Any way up</option>
+          <option value="upright">Upright only</option>
+          <option value="fixed">Exactly as typed</option>
+        </select>
+      </label>
+      <label class="field">
+        <span>Boxes to store <em>(optional)</em></span>
+        <input id="qty" type="number" min="0" step="1" placeholder="e.g. 500" />
+      </label>
+    </section>
+
+  </aside>
+
+  <section class="stage">
+
+    <div class="results" id="results">
+      <div class="headline">
+        <div class="count"><strong id="total">&mdash;</strong><span id="totalWord">boxes fit</span></div>
+        <p id="verdict" class="verdict">Type a size to begin.</p>
+      </div>
+      <div class="stats">
+        <div class="stat"><span id="fillPct">&mdash;</span><label>space used</label></div>
+        <div class="stat"><span id="perLayer">&mdash;</span><label>on the floor</label></div>
+        <div class="stat"><span id="stackHi">&mdash;</span><label>stacked height</label></div>
+        <div class="stat" id="racksStat" hidden><span id="racksNeeded">&mdash;</span><label>racks needed</label></div>
+      </div>
+      <div class="legend" id="legend"></div>
+      <p class="note" id="note" hidden></p>
+    </div>
+
+    <div class="viewer">
+      <div class="viewer-head">
+        <div class="tabs">
+          <button class="tab on" data-view="3d" type="button">3D</button>
+          <button class="tab" data-view="2d" type="button">Plan</button>
+        </div>
+        <div class="slider">
+          <label id="cutLabel" for="cut">Show all</label>
+          <input id="cut" type="range" min="0" max="100" value="100" step="1" />
+        </div>
+        <button id="resetView" class="ghost small" type="button">Re-centre</button>
+      </div>
+      <div class="canvas-wrap" id="wrap3d"><canvas id="c3d"></canvas></div>
+      <div class="canvas-wrap" id="wrap2d" hidden><canvas id="c2d"></canvas></div>
+      <p class="hint" id="hint">Drag to turn &middot; scroll to zoom &middot; shift-drag to slide</p>
+    </div>
+
+  </section>
+</main>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="config.js"></script>
+<script src="packer.js"></script>
+<script src="db.js"></script>
+<script src="view3d.js"></script>
+<script src="view2d.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
