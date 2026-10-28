@@ -27,7 +27,7 @@
     rack: { l: 240, w: 120, h: 85 },
     result: null,
     placements: [],
-    ready3d: false,
+    view3d: null,
   };
 
   // --- small helpers ---------------------------------------------------------
@@ -151,7 +151,7 @@
       // A box counts as placed once its base is below the cut, so a layer
       // taller than the cut still shows instead of leaving the rack empty.
       const shown = atTop ? state.placements : state.placements.filter((p) => p.z < cut - 1e-6);
-      if (state.ready3d) View3D.show(state.rack, shown, dark());
+      if (state.view3d) state.view3d.show(state.rack, shown, dark());
     } else {
       const h = atTop ? Math.max(0, state.rack.h - 0.01) : cut;
       el.cutLabel.textContent = "Cut at " + label(h);
@@ -162,13 +162,13 @@
 
   function setView(name) {
     state.view = name;
-    document.querySelectorAll(".tab").forEach((t) => t.classList.toggle("on", t.dataset.view === name));
+    document.querySelectorAll("#page-calc .tab").forEach((t) => t.classList.toggle("on", t.dataset.view === name));
     el.wrap3d.hidden = name !== "3d";
     el.wrap2d.hidden = name !== "2d";
     el.hint.textContent = name === "3d"
       ? "Drag to turn · scroll to zoom · shift-drag to slide"
       : "The rack from above, cut through at the slider's height.";
-    if (name === "3d") View3D.redraw();
+    if (name === "3d" && state.view3d) state.view3d.redraw();
     draw();
   }
 
@@ -312,8 +312,8 @@
   });
 
   el.cut.addEventListener("input", draw);
-  el.resetView.addEventListener("click", function () { View3D.frame(state.rack); });
-  document.querySelectorAll(".tab").forEach(function (t) {
+  el.resetView.addEventListener("click", function () { if (state.view3d) state.view3d.frame(state.rack); });
+  document.querySelectorAll("#page-calc .tab").forEach(function (t) {
     t.addEventListener("click", function () { setView(t.dataset.view); });
   });
 
@@ -323,6 +323,8 @@
     try { localStorage.setItem("rackPlanner.theme", next); } catch (e) { /* ignore */ }
     el.themeBtn.textContent = next === "dark" ? "Light" : "Dark";
     draw();
+    // Anything else drawn on a canvas picks its colours from the theme too.
+    document.dispatchEvent(new CustomEvent("themechange"));
   });
 
   // --- start -----------------------------------------------------------------
@@ -341,9 +343,8 @@
       : "Racks and box sizes saved in this browser";
 
     if (View3D.available()) {
-      View3D.init(document.getElementById("c3d"));
-      state.ready3d = true;
-      View3D.frame(state.rack);
+      state.view3d = View3D.create(document.getElementById("c3d"));
+      state.view3d.frame(state.rack);
     } else {
       el.wrap3d.innerHTML =
         "<p class='fallback'>The 3D view needs three.js, which did not load. The plan view still works.</p>";

@@ -16,10 +16,155 @@
       <p id="dbStatus" class="sub">&nbsp;</p>
     </div>
   </div>
+  <nav class="nav" aria-label="Pages">
+    <button class="nav-btn" data-page="racks" type="button">Racks</button>
+    <button class="nav-btn" data-page="import" type="button">Import</button>
+    <button class="nav-btn" data-page="calc" type="button">Calculator</button>
+  </nav>
   <button id="themeBtn" class="ghost" type="button" title="Light or dark">Dark</button>
 </header>
 
-<main>
+<!-- ============================ Racks dashboard ============================ -->
+<section class="page" id="page-racks" hidden>
+
+  <div class="empty card" id="dashEmpty" hidden>
+    <h2>No SKU sheet yet</h2>
+    <p>Import the sheet with Tier, Category, SKU, sizes and box counts, and every SKU
+      gets a shelf in the 4KB racks.</p>
+    <div class="row-btns">
+      <button class="primary" type="button" data-goto="import">Import a sheet</button>
+      <button class="ghost" type="button" data-template>Download the template</button>
+    </div>
+  </div>
+
+  <div id="dash" hidden>
+    <div class="dash-head">
+      <div>
+        <h2>4KB racks</h2>
+        <p class="sub" id="dashSource">&nbsp;</p>
+      </div>
+      <div class="dash-tools">
+        <input id="dashSearch" type="search" placeholder="Find a SKU, category or location" />
+        <select id="dashColor" title="What the colours mean">
+          <option value="category">Colour by category</option>
+          <option value="tier">Colour by tier</option>
+          <option value="sku">Colour by SKU</option>
+        </select>
+        <button class="primary" id="dashExport" type="button">Export put-away list</button>
+      </div>
+    </div>
+
+    <div class="kpis">
+      <div class="kpi"><span id="kShelves">&mdash;</span><label>shelves in use</label></div>
+      <div class="kpi"><span id="kBoxes">&mdash;</span><label>boxes placed</label></div>
+      <div class="kpi" id="kMissWrap"><span id="kMiss">&mdash;</span><label>boxes with no shelf</label></div>
+      <div class="kpi"><span id="kSkus">&mdash;</span><label>SKUs fully placed</label></div>
+      <div class="kpi"><span id="kFill">&mdash;</span><label>rack space used</label></div>
+    </div>
+
+    <details class="rules card" id="rulesBox">
+      <summary>How shelves are chosen <span class="sub" id="rulesSummary"></span></summary>
+      <div class="rules-grid">
+        <label class="field"><span>Who goes first</span>
+          <select id="ruleOrder">
+            <option value="tier">Tier, then sold per day</option>
+            <option value="category">Category, then tier</option>
+            <option value="sales">Sold per day only</option>
+          </select>
+        </label>
+        <label class="field"><span>Best shelves</span>
+          <select id="ruleFill">
+            <option value="layer">Layer 1 everywhere, then 2, then 3</option>
+            <option value="row">Row by row, lowest layer first</option>
+            <option value="label">In label order (1-1-1, 1-1-2 &hellip;)</option>
+          </select>
+        </label>
+        <label class="field"><span>Sharing a shelf</span>
+          <select id="ruleMix">
+            <option value="category">Only with the same category</option>
+            <option value="any">With any SKU</option>
+            <option value="one">Never &mdash; one SKU per shelf</option>
+          </select>
+        </label>
+        <label class="field"><span>Turning boxes</span>
+          <select id="ruleTurn">
+            <option value="any">Any way up</option>
+            <option value="upright">Upright only</option>
+          </select>
+        </label>
+      </div>
+      <p class="sub rules-note">Each SKU fills whole shelves first. Its leftover boxes get a slice of a
+        shelf, front to back and full height, so every SKU on a shelf faces the aisle.
+        Changes are saved for everyone.</p>
+    </details>
+
+    <div class="dash-body">
+      <div class="map card" id="rackMap"></div>
+
+      <aside class="detail card" id="detail">
+        <div class="detail-empty" id="detailEmpty">
+          <p>Pick a shelf on the map to see what goes on it.</p>
+        </div>
+        <div id="detailBody" hidden>
+          <div class="detail-head">
+            <div>
+              <h3 id="dLabel">&nbsp;</h3>
+              <p class="sub" id="dWhere">&nbsp;</p>
+            </div>
+            <div class="detail-fill"><strong id="dFill">&nbsp;</strong><span>full</span></div>
+          </div>
+          <div class="canvas-wrap detail-3d"><canvas id="dCanvas"></canvas></div>
+          <p class="hint">Drag to turn &middot; scroll to zoom</p>
+          <table class="tbl" id="dTable"></table>
+        </div>
+      </aside>
+    </div>
+
+    <div class="card sku-card">
+      <div class="sku-head">
+        <h3>SKUs</h3>
+        <select id="skuFilter">
+          <option value="all">All SKUs</option>
+          <option value="missing">Not fully placed</option>
+          <option value="placed">Fully placed</option>
+        </select>
+      </div>
+      <div class="tbl-wrap"><table class="tbl" id="skuTable"></table></div>
+    </div>
+  </div>
+</section>
+
+<!-- ================================ Import ================================ -->
+<section class="page" id="page-import" hidden>
+  <div class="card import-card">
+    <h2>Import a SKU sheet</h2>
+    <p class="sub">Excel <b>.xlsx</b> or <b>.xls</b>, with these columns in any order:</p>
+    <p class="cols" id="expectCols"></p>
+    <label class="drop" id="drop">
+      <input id="fileInput" type="file" accept=".xls,.xlsx,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" />
+      <strong>Choose a file</strong> or drop it here
+    </label>
+    <div class="row-btns">
+      <button class="ghost" type="button" data-template>Download the template</button>
+    </div>
+    <p class="sub">Boxes to place come from <em>Total number of boxes</em>. Where that is blank,
+      <em>Needed qty in 4KB for 15 days &divide; Qty per box</em>, rounded up. Sizes are read as centimetres.</p>
+  </div>
+
+  <div class="card" id="importResult" hidden>
+    <div class="import-summary" id="importSummary"></div>
+    <div class="row-btns">
+      <button class="primary" id="importUse" type="button">Use this sheet</button>
+      <button class="ghost" id="importCancel" type="button">Choose another</button>
+    </div>
+    <div id="importNotes"></div>
+    <div class="tbl-wrap"><table class="tbl" id="importPreview"></table></div>
+  </div>
+</section>
+
+<!-- ============================== Calculator ============================== -->
+<section class="page" id="page-calc" hidden>
+<main class="calc">
   <aside class="panel">
 
     <section class="group">
@@ -119,13 +264,21 @@
 
   </section>
 </main>
+</section>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="config.js"></script>
 <script src="packer.js"></script>
+<script src="layout.js"></script>
+<script src="allocate.js"></script>
 <script src="db.js"></script>
+<script src="excel.js"></script>
 <script src="view3d.js"></script>
 <script src="view2d.js"></script>
 <script src="app.js"></script>
+<script src="dashboard.js"></script>
+<script src="importer.js"></script>
+<script src="pages.js"></script>
 </body>
 </html>

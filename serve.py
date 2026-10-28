@@ -18,6 +18,13 @@ class Handler(http.server.SimpleHTTPRequestHandler):
     def log_message(self, *args):
         pass
 
+    # Ask browsers to check for a newer copy every time. Without this, an
+    # office PC can keep last week's app.js beside this week's index.html
+    # and the two no longer fit together.
+    def end_headers(self):
+        self.send_header("Cache-Control", "no-cache")
+        super().end_headers()
+
 
 def main():
     handler = functools.partial(Handler, directory=ROOT)

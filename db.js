@@ -1,6 +1,6 @@
-// Racks and box presets, from Supabase when it is configured and from this
-// browser when it is not. Both halves answer the same four calls, so nothing
-// above here has to know which one is in use.
+// Racks, box presets and imported SKU sheets, from Supabase when it is
+// configured and from this browser when it is not. Both halves answer the
+// same calls, so nothing above here has to know which one is in use.
 const DB = (function () {
   "use strict";
 
@@ -18,16 +18,19 @@ const DB = (function () {
   async function rest(table, options) {
     const opts = options || {};
     const url = SUPABASE_URL + "/rest/v1/" + table + (opts.query || "");
+    const prefer = opts.prefer || (opts.method === "POST" || opts.method === "PATCH" ? "return=representation" : null);
     const res = await fetch(url, {
       method: opts.method || "GET",
-      headers: Object.assign({}, SB_HEADERS, opts.method === "POST" ? { Prefer: "return=representation" } : {}),
+      headers: Object.assign({}, SB_HEADERS, prefer ? { Prefer: prefer } : {}),
       body: opts.body ? JSON.stringify(opts.body) : undefined,
     });
     if (!res.ok) {
       const text = await res.text();
       throw new Error(table + " " + res.status + ": " + text.slice(0, 200));
     }
-    return res.status === 204 ? null : res.json();
+    // A write asked for "return=minimal" answers 201 with no body at all.
+    const body = await res.text();
+    return body ? JSON.parse(body) : null;
   }
 
   // --- the browser-only half -------------------------------------------------
@@ -84,8 +87,103 @@ const DB = (function () {
 
   const byName = (a, b) => String(a.name).localeCompare(String(b.name));
 
+  // --- imported SKU sheets ---------------------------------------------------
+
+  const IMPORT_TABLE = "rack_imports";
+  const SKU_TABLE = "rack_skus";
+  const LOCAL_IMPORT = "rackPlanner.import";
+  const PAGE = 1000; // the most rows Supabase hands back in one go
+
+  function toRow(s, importId, line) {
+    return {
+      import_id: importId, line_no: line,
+      tier: s.tier || null, category: s.category || null, sku: s.sku,
+      sold_per_day: s.soldPerDay, quantity: s.quantity,
+      length_cm: s.length, width_cm: s.width, height_cm: s.height,
+      needed_qty_15d: s.neededQty, qty_per_box: s.qtyPerBox, total_boxes: s.totalBoxes,
+    };
+  }
+
+  // numeric columns come back from PostgREST as numbers, or as null
+  function fromRow(r) {
+    return {
+      tier: r.tier || "", category: r.category || "", sku: r.sku,
+      soldPerDay: r.sold_per_day, quantity: r.quantity,
+      length: r.length_cm, width: r.width_cm, height: r.height_cm,
+      neededQty: r.needed_qty_15d, qtyPerBox: r.qty_per_box, totalBoxes: r.total_boxes,
+    };
+  }
+
+  const imports = {
+    // The newest sheet and its rows, or null when nothing has been imported.
+    async latest() {
+      if (!configured()) {
+        try {
+          const raw = localStorage.getItem(LOCAL_IMPORT);
+          return raw ? JSON.parse(raw) : null;
+        } catch (e) { return null; }
+      }
+      const found = await rest(IMPORT_TABLE, { query: "?select=*&order=imported_at.desc&limit=1" });
+      if (!found.length) return null;
+      const head = found[0];
+      const skus = [];
+      for (let from = 0; ; from += PAGE) {
+        const page = await rest(SKU_TABLE, {
+          query: "?select=*&import_id=eq." + head.id + "&order=line_no&limit=" + PAGE + "&offset=" + from,
+        });
+        for (const r of page) skus.push(fromRow(r));
+        if (page.length < PAGE) break;
+      }
+      return { import: head, skus: skus };
+    },
+
+    // Store a sheet as the new current one. If any batch of rows fails, the
+    // half-written import is taken out again so it never becomes "newest".
+    async save(fileName, skus, rules) {
+      if (!configured()) {
+        const head = {
+          id: localId(), file_name: fileName, row_count: skus.length,
+          rules: rules || {}, imported_at: new Date().toISOString(),
+        };
+        const data = { import: head, skus: skus };
+        localStorage.setItem(LOCAL_IMPORT, JSON.stringify(data));
+        return data;
+      }
+      const head = (await rest(IMPORT_TABLE, {
+        method: "POST",
+        body: [{ file_name: fileName, row_count: skus.length, rules: rules || {} }],
+      }))[0];
+      try {
+        for (let i = 0; i < skus.length; i += 500) {
+          const batch = skus.slice(i, i + 500).map((s, j) => toRow(s, head.id, i + j + 1));
+          await rest(SKU_TABLE, { method: "POST", body: batch, prefer: "return=minimal" });
+        }
+      } catch (e) {
+        await rest(IMPORT_TABLE, { method: "DELETE", query: "?id=eq." + head.id }).catch(function () {});
+        throw e;
+      }
+      return { import: head, skus: skus };
+    },
+
+    async setRules(id, rules) {
+      if (!configured()) {
+        const raw = localStorage.getItem(LOCAL_IMPORT);
+        if (!raw) return;
+        const data = JSON.parse(raw);
+        data.import.rules = rules;
+        localStorage.setItem(LOCAL_IMPORT, JSON.stringify(data));
+        return;
+      }
+      await rest(IMPORT_TABLE, {
+        method: "PATCH", query: "?id=eq." + encodeURIComponent(id),
+        body: { rules: rules }, prefer: "return=minimal",
+      });
+    },
+  };
+
   return {
     configured: configured,
+    imports: imports,
     racks: makeStore(RACK_TABLE, "rackPlanner.racks", SEED_RACKS, function (a, b) {
       if (a.is_default !== b.is_default) return a.is_default ? -1 : 1;
       return byName(a, b);
