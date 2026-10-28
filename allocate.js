@@ -17,6 +17,8 @@ const Allocate = (function () {
     order: "tier",   // "tier" | "category" | "sales"
     fill: "layer",   // see Layout
     turn: "any",     // "any" | "upright"
+    tiers: null,     // tier names, best first; null = tierDefaults()
+    skipTiers: [],   // tiers that get no shelf at all
   };
 
   function text(v) {
@@ -33,24 +35,54 @@ const Allocate = (function () {
   }
 
   const num = (v) => (typeof v === "number" && isFinite(v) ? v : 0);
+  const given = (v) => typeof v === "number" && isFinite(v);
 
-  const ORDERS = {
-    tier: (a, b) =>
-      compareText(a.tier, b.tier) || num(b.soldPerDay) - num(a.soldPerDay) || compareText(a.sku, b.sku),
-    category: (a, b) =>
-      compareText(a.category, b.category) || compareText(a.tier, b.tier) ||
-      num(b.soldPerDay) - num(a.soldPerDay) || compareText(a.sku, b.sku),
-    sales: (a, b) =>
-      num(b.soldPerDay) - num(a.soldPerDay) || compareText(a.tier, b.tier) || compareText(a.sku, b.sku),
-  };
+  // Tier names are words, not letters -- "Tier 1", "GWP", "New SKU",
+  // "Discontinue" -- so alphabetical order would put Discontinue first. Until
+  // somebody sets an order on the dashboard, numbered tiers lead, then gift
+  // and new lines, then anything unrecognised, and discontinued lines last.
+  function defaultRank(name) {
+    const t = text(name).toLowerCase();
+    if (!t) return 1000;
+    const n = t.match(/^tier\s*(\d+)/);
+    if (n) return 10 + Number(n[1]);
+    if (/gwp|gift/.test(t)) return 200;
+    if (/new/.test(t)) return 300;
+    if (/discon|phase.?out|end.?of.?life|\beol\b/.test(t)) return 900;
+    return 500;
+  }
 
-  // How many boxes a SKU needs room for. The sheet's own total wins; failing
-  // that, what fifteen days of sales come to in boxes.
+  // Every tier in the sheet, best first: the saved order where there is one,
+  // and the default ranking for any tier it does not mention.
+  function tierOrder(skus, saved) {
+    const present = [...new Set(skus.map((s) => text(s.tier)))];
+    const known = (saved || []).filter((t) => present.indexOf(t) >= 0);
+    const rest = present.filter((t) => known.indexOf(t) < 0)
+      .sort((a, b) => defaultRank(a) - defaultRank(b) || compareText(a, b));
+    return known.concat(rest);
+  }
+
+  function makeOrders(rank) {
+    const tier = (a, b) => rank(a.tier) - rank(b.tier);
+    const sold = (a, b) => num(b.soldPerDay) - num(a.soldPerDay);
+    const sku = (a, b) => compareText(a.sku, b.sku);
+    return {
+      tier: (a, b) => tier(a, b) || sold(a, b) || sku(a, b),
+      category: (a, b) => compareText(a.category, b.category) || tier(a, b) || sold(a, b) || sku(a, b),
+      sales: (a, b) => sold(a, b) || tier(a, b) || sku(a, b),
+    };
+  }
+
+  // How many boxes a SKU needs room for, or null when the sheet does not say
+  // and cannot be made to. The sheet's own Total wins whenever it is filled
+  // in -- even when it is 0 -- because that number is the planner's decision.
+  // Only when it is blank is it worked out: needed quantity over quantity per
+  // box, rounded up.
   function boxesWanted(s) {
-    if (num(s.totalBoxes) > 0) return Math.ceil(s.totalBoxes - EPS);
+    if (given(s.totalBoxes)) return Math.max(0, Math.ceil(s.totalBoxes - EPS));
     const perBox = num(s.qtyPerBox);
-    if (perBox <= 0) return 0;
-    const needed = num(s.neededQty) > 0 ? s.neededQty : num(s.soldPerDay) * 15;
+    const needed = given(s.neededQty) ? s.neededQty : num(s.soldPerDay) * 15;
+    if (perBox <= 0) return needed > 0 ? null : 0;
     return Math.max(0, Math.ceil(needed / perBox - EPS));
   }
 
@@ -112,10 +144,17 @@ const Allocate = (function () {
       return rec;
     }
 
+    const tiers = tierOrder(skus, rules.tiers);
+    const rankOf = new Map(tiers.map((t, i) => [t, i]));
+    const rank = (t) => (rankOf.has(text(t)) ? rankOf.get(text(t)) : tiers.length);
+    const skip = new Set((rules.skipTiers || []).map(text));
+    const ORDERS = makeOrders(rank);
+
     const results = skus.map(function (s, i) {
+      const wanted = boxesWanted(s);
       return {
-        index: i, sku: s, wanted: boxesWanted(s), placed: 0, unplaced: 0,
-        perShelf: 0, spots: [], problem: null,
+        index: i, sku: s, wanted: wanted === null ? 0 : wanted, placed: 0, unplaced: 0,
+        perShelf: 0, spots: [], problem: wanted === null ? "no-count" : null,
       };
     });
 
@@ -124,6 +163,8 @@ const Allocate = (function () {
 
     for (const r of order) {
       const s = r.sku;
+      if (r.problem === "no-count") continue;
+      if (skip.has(text(s.tier))) { r.problem = "skipped"; continue; }
       if (r.wanted <= 0) { r.problem = "none-needed"; continue; }
       if (!hasSize(s)) { r.problem = "no-size"; r.unplaced = r.wanted; continue; }
 
@@ -193,18 +234,22 @@ const Allocate = (function () {
       boxVolume += v;
     }
 
+    const counted = results.filter((r) => r.problem !== "skipped" && r.problem !== "no-count");
     const stats = {
       shelves: Layout.count,
       shelvesUsed: locations.size,
       skus: skus.length,
-      skusPlaced: results.filter((r) => r.wanted > 0 && r.unplaced === 0 && r.placed > 0).length,
-      boxesWanted: results.reduce((n, r) => n + (r.problem === "none-needed" ? 0 : r.wanted), 0),
+      skusNeeding: counted.filter((r) => r.wanted > 0).length,
+      skusPlaced: counted.filter((r) => r.wanted > 0 && r.unplaced === 0 && r.placed > 0).length,
+      skusNoCount: results.filter((r) => r.problem === "no-count").length,
+      skusSkipped: results.filter((r) => r.problem === "skipped").length,
+      boxesWanted: counted.reduce((n, r) => n + r.wanted, 0),
       boxesPlaced: results.reduce((n, r) => n + r.placed, 0),
       boxesUnplaced: results.reduce((n, r) => n + r.unplaced, 0),
       fill: boxVolume / (shelfVolume * Layout.count),
     };
 
-    return { rules: rules, locations: locations, results: results, stats: stats, packIn: packIn };
+    return { rules: rules, tiers: tiers, locations: locations, results: results, stats: stats, packIn: packIn };
   }
 
   // Every box on one shelf, positioned for drawing. Within a section the
@@ -231,6 +276,7 @@ const Allocate = (function () {
     run: run,
     placementsOn: placementsOn,
     boxesWanted: boxesWanted,
+    tierOrder: tierOrder,
     compareText: compareText,
     DEFAULT_RULES: DEFAULT_RULES,
   };

@@ -62,6 +62,11 @@
       <div class="kpi"><span id="kFill">&mdash;</span><label>rack space used</label></div>
     </div>
 
+    <div class="banner" id="dataGap" hidden>
+      <p id="dataGapText"></p>
+      <button class="ghost small" id="dataGapShow" type="button">Show them</button>
+    </div>
+
     <details class="rules card" id="rulesBox">
       <summary>How shelves are chosen <span class="sub" id="rulesSummary"></span></summary>
       <div class="rules-grid">
@@ -92,6 +97,10 @@
             <option value="upright">Upright only</option>
           </select>
         </label>
+      </div>
+      <div class="tier-rank">
+        <span class="tier-title">Tier order <span class="sub">&mdash; earlier tiers get the better shelves</span></span>
+        <ol id="tierList"></ol>
       </div>
       <p class="sub rules-note">Each SKU fills whole shelves first. Its leftover boxes get a slice of a
         shelf, front to back and full height, so every SKU on a shelf faces the aisle.
@@ -125,8 +134,10 @@
         <h3>SKUs</h3>
         <select id="skuFilter">
           <option value="all">All SKUs</option>
-          <option value="missing">Not fully placed</option>
-          <option value="placed">Fully placed</option>
+          <option value="missing">Needs attention</option>
+          <option value="nocount">No box count</option>
+          <option value="placed">Has shelves</option>
+          <option value="skipped">Tier gets no shelves</option>
         </select>
       </div>
       <div class="tbl-wrap"><table class="tbl" id="skuTable"></table></div>

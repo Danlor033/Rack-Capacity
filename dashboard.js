@@ -22,6 +22,7 @@ const Dashboard = (function () {
     detailEmpty: $("detailEmpty"), detailBody: $("detailBody"),
     dLabel: $("dLabel"), dWhere: $("dWhere"), dFill: $("dFill"), dCanvas: $("dCanvas"), dTable: $("dTable"),
     skuFilter: $("skuFilter"), skuTable: $("skuTable"),
+    tierList: $("tierList"), gap: $("dataGap"), gapText: $("dataGapText"), gapShow: $("dataGapShow"),
   };
 
   const state = {
@@ -120,18 +121,50 @@ const Dashboard = (function () {
 
   function renderKpis() {
     const s = state.alloc.stats;
-    const needing = state.alloc.results.filter((r) => r.wanted > 0).length;
     el.kShelves.textContent = s.shelvesUsed + " / " + s.shelves;
     el.kBoxes.textContent = s.boxesPlaced.toLocaleString() + " / " + s.boxesWanted.toLocaleString();
     el.kMiss.textContent = s.boxesUnplaced.toLocaleString();
     el.kMissWrap.classList.toggle("bad", s.boxesUnplaced > 0);
-    el.kSkus.textContent = s.skusPlaced + " / " + needing;
+    el.kSkus.textContent = s.skusPlaced + " / " + s.skusNeeding;
     el.kFill.textContent = pct(s.fill);
+
+    // SKUs the sheet asks stock for but gives no box count: the racks cannot
+    // hold what nobody has said the size of. Easy to miss in a table, so it
+    // is said up front.
+    if (s.skusNoCount) {
+      const units = state.alloc.results.filter((r) => r.problem === "no-count")
+        .reduce((n, r) => n + (Number(r.sku.neededQty) || 0), 0);
+      el.gapText.innerHTML = "<b>" + s.skusNoCount + " SKUs</b> need stock (" + units.toLocaleString() +
+        " units over 15 days) but have neither <em>Total # of boxes</em> nor <em>Qty per box</em>, " +
+        "so the racks have no room set aside for them. Fill one in and import the sheet again.";
+      el.gap.hidden = false;
+    } else {
+      el.gap.hidden = true;
+    }
   }
 
   function renderRules() {
     const pick = (sel) => sel.options[sel.selectedIndex].text;
-    el.rulesSummary.textContent = "— " + [pick(el.ruleOrder), pick(el.ruleMix).toLowerCase()].join(", ");
+    const skip = state.rules.skipTiers || [];
+    el.rulesSummary.textContent = "— " + [
+      state.alloc.tiers.filter((t) => skip.indexOf(t) < 0).map((t) => t || "(no tier)").join(" › "),
+      pick(el.ruleMix).toLowerCase(),
+    ].join(", ");
+
+    const count = new Map();
+    for (const sku of state.data.skus) count.set(sku.tier || "", (count.get(sku.tier || "") || 0) + 1);
+    const tiers = state.alloc.tiers;
+    el.tierList.innerHTML = tiers.map(function (t, i) {
+      const off = skip.indexOf(t) >= 0;
+      return '<li data-tier="' + esc(t) + '"' + (off ? ' class="off"' : "") + ">" +
+        '<span class="rank">' + (i + 1) + "</span>" +
+        '<span class="name">' + (t ? esc(t) : '<em class="sub">(no tier)</em>') + "</span>" +
+        '<span class="sub cnt">' + (count.get(t) || 0) + " SKUs</span>" +
+        '<label class="give"><input type="checkbox"' + (off ? "" : " checked") + "> gets shelves</label>" +
+        '<button type="button" class="ghost small" data-move="-1"' + (i === 0 ? " disabled" : "") + ' title="Better shelves">↑</button>' +
+        '<button type="button" class="ghost small" data-move="1"' + (i === tiers.length - 1 ? " disabled" : "") + ' title="Worse shelves">↓</button>' +
+        "</li>";
+    }).join("");
   }
 
   function matches(rec, label) {
@@ -228,21 +261,22 @@ const Dashboard = (function () {
       el.dTable.innerHTML = '<tbody><tr><td class="sub">Empty shelf — nothing in the sheet needs it.</td></tr></tbody>';
       return;
     }
-    let html = "<thead><tr><th></th><th>SKU</th><th>Category</th><th>Tier</th><th class=\"num\">Boxes</th>" +
-      "<th class=\"num\">Qty</th><th>Box (cm)</th><th class=\"num\">Width used</th></tr></thead><tbody>";
+    let html = "<thead><tr><th></th><th>SKU</th><th class=\"num\">Boxes</th>" +
+      "<th class=\"num\">Qty</th><th class=\"num\">Width</th></tr></thead><tbody>";
     rec.sections.forEach(function (sec, i) {
       const s = state.data.skus[sec.sku];
       const qty = s.qtyPerBox > 0 ? fmt(sec.boxes * s.qtyPerBox) : "";
+      const size = [s.length, s.width, s.height].join(" × ") + " cm";
       html += '<tr><td><span class="chip" style="background:' + colorFor(i) + '"></span></td>' +
-        "<td><b>" + esc(s.sku) + "</b></td><td>" + esc(s.category) + "</td><td>" + esc(s.tier) + "</td>" +
+        '<td class="sku-cell"><b>' + esc(s.sku) + '</b><span class="sub">' +
+        esc([s.category, s.tier, size].filter(Boolean).join(" · ")) + "</span></td>" +
         '<td class="num">' + fmt(sec.boxes) + '</td><td class="num">' + qty + "</td>" +
-        "<td>" + [s.length, s.width, s.height].join(" × ") + "</td>" +
         '<td class="num">' + Math.round(sec.len) + " cm</td></tr>";
     });
     const free = Layout.SHELF.l - rec.sections.reduce((n, s) => n + s.len, 0);
     html += "</tbody>";
     if (free > 0.5 && rec.sections.length && rec.sections[0].len < Layout.SHELF.l) {
-      html += '<tfoot><tr><td></td><td colspan="7" class="sub">' + Math.round(free) + " cm of shelf width still free</td></tr></tfoot>";
+      html += '<tfoot><tr><td></td><td colspan="4" class="sub">' + Math.round(free) + " cm of shelf width still free</td></tr></tfoot>";
     }
     el.dTable.innerHTML = html;
   }
@@ -252,15 +286,20 @@ const Dashboard = (function () {
     "no-size": "box size missing",
     "no-room": "racks are full",
     "none-needed": "no boxes needed",
+    "no-count": "no box count in the sheet",
+    "skipped": "tier gets no shelves",
   };
+  const ATTENTION = ["too-big", "no-size", "no-room", "no-count"];
 
   function renderSkus() {
     const filter = el.skuFilter.value;
     const rows = state.alloc.results.slice()
       .sort((a, b) => a.order - b.order)
       .filter(function (r) {
-        if (filter === "missing") return r.unplaced > 0;
-        if (filter === "placed") return r.wanted > 0 && r.unplaced === 0;
+        if (filter === "missing") return ATTENTION.indexOf(r.problem) >= 0;
+        if (filter === "nocount") return r.problem === "no-count";
+        if (filter === "placed") return r.placed > 0 && r.unplaced === 0;
+        if (filter === "skipped") return r.problem === "skipped";
         return true;
       });
 
@@ -271,11 +310,13 @@ const Dashboard = (function () {
       const s = r.sku;
       const where = r.spots.map((p) => '<a href="#" data-loc="' + p.label + '">' + p.label + "</a>" +
         (p.boxes ? ' <span class="sub">×' + p.boxes + "</span>" : "")).join(", ");
-      const note = r.problem && r.problem !== "none-needed" ? ' <span class="tag bad">' + WHY[r.problem] + "</span>" : "";
-      html += '<tr data-sku="' + r.index + '"' + (r.unplaced > 0 ? ' class="short"' : "") + ">" +
+      const attention = ATTENTION.indexOf(r.problem) >= 0;
+      const note = r.problem && r.problem !== "none-needed"
+        ? ' <span class="tag' + (attention ? " bad" : "") + '">' + WHY[r.problem] + "</span>" : "";
+      html += '<tr data-sku="' + r.index + '"' + (attention ? ' class="short"' : "") + ">" +
         '<td class="sub">' + (r.order + 1) + "</td>" +
         "<td>" + esc(s.tier) + "</td><td>" + esc(s.category) + "</td><td><b>" + esc(s.sku) + "</b></td>" +
-        '<td class="num">' + fmt(s.soldPerDay) + '</td><td class="num">' + fmt(r.wanted) + "</td>" +
+        '<td class="num">' + fmt(s.soldPerDay) + '</td><td class="num">' + (r.problem === "no-count" ? "?" : fmt(r.wanted)) + "</td>" +
         '<td class="num">' + fmt(r.placed) + '</td><td class="num">' + (r.unplaced ? fmt(r.unplaced) : "") + "</td>" +
         '<td class="num">' + (r.perShelf ? fmt(r.perShelf) : "") + "</td>" +
         "<td>" + where + note + "</td></tr>";
@@ -342,10 +383,10 @@ const Dashboard = (function () {
   // A rule change re-lays the racks at once and is saved for everyone.
   let saveTimer = null;
   function ruleChanged() {
-    state.rules = {
+    state.rules = Object.assign({}, state.rules, {
       order: el.ruleOrder.value, fill: el.ruleFill.value,
       mix: el.ruleMix.value, turn: el.ruleTurn.value,
-    };
+    });
     recompute();
     clearTimeout(saveTimer);
     saveTimer = setTimeout(function () {
@@ -355,6 +396,34 @@ const Dashboard = (function () {
     }, 400);
   }
   [el.ruleOrder, el.ruleFill, el.ruleMix, el.ruleTurn].forEach((s) => s.addEventListener("change", ruleChanged));
+
+  // Reordering a tier, or taking it off the racks altogether.
+  el.tierList.addEventListener("click", function (e) {
+    const btn = e.target.closest("button[data-move]");
+    if (!btn) return;
+    const tiers = state.alloc.tiers.slice();
+    const i = tiers.indexOf(btn.closest("li").dataset.tier);
+    const j = i + Number(btn.dataset.move);
+    if (i < 0 || j < 0 || j >= tiers.length) return;
+    [tiers[i], tiers[j]] = [tiers[j], tiers[i]];
+    state.rules.tiers = tiers;
+    ruleChanged();
+  });
+  el.tierList.addEventListener("change", function (e) {
+    if (e.target.type !== "checkbox") return;
+    const tier = e.target.closest("li").dataset.tier;
+    const skip = (state.rules.skipTiers || []).filter((t) => t !== tier);
+    if (!e.target.checked) skip.push(tier);
+    state.rules.skipTiers = skip;
+    state.rules.tiers = state.alloc.tiers.slice();
+    ruleChanged();
+  });
+
+  el.gapShow.addEventListener("click", function () {
+    el.skuFilter.value = "nocount";
+    renderSkus();
+    el.skuTable.scrollIntoView({ block: "start", behavior: "smooth" });
+  });
 
   el.exportBtn.addEventListener("click", function () {
     if (!Excel.available()) { alert("The spreadsheet library did not load, so the list cannot be written."); return; }

@@ -335,6 +335,32 @@ h2, h3 { letter-spacing: -.01em; }
 .rules-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; padding: 0 16px; }
 .rules-note { padding: 0 16px 14px; }
 
+.tier-rank { padding: 12px 16px 4px; }
+.tier-title { display: block; font-size: 12px; color: var(--ink-soft); margin-bottom: 6px; }
+.tier-title .sub { display: inline; }
+#tierList { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; max-width: 560px; }
+#tierList li {
+  display: grid; grid-template-columns: 24px 1fr auto auto auto auto; gap: 10px; align-items: center;
+  padding: 5px 8px; border: 1px solid var(--line); border-radius: 8px; background: var(--bg); font-size: 13px;
+}
+#tierList li.off { opacity: .55; }
+#tierList li.off .name { text-decoration: line-through; }
+#tierList .rank { font-weight: 700; color: var(--accent); text-align: center; font-variant-numeric: tabular-nums; }
+#tierList .cnt { white-space: nowrap; }
+#tierList .give { font-size: 12px; color: var(--ink-soft); display: flex; gap: 5px; align-items: center; white-space: nowrap; }
+#tierList button { padding: 2px 8px; }
+#tierList button:disabled { opacity: .3; cursor: default; }
+
+.banner {
+  display: flex; align-items: center; gap: 14px; justify-content: space-between;
+  padding: 12px 16px; border-radius: var(--radius);
+  border: 1px solid color-mix(in srgb, var(--warn) 45%, transparent);
+  background: color-mix(in srgb, var(--warn) 9%, var(--card));
+  font-size: 13.5px;
+}
+.banner p { margin: 0; }
+.banner button { flex: none; }
+
 .dash-body { display: grid; grid-template-columns: minmax(0, 1fr) 400px; gap: 16px; align-items: start; }
 
 /* ---- the rack map ---- */
@@ -396,6 +422,10 @@ h2, h3 { letter-spacing: -.01em; }
 .detail-fill span { font-size: 11px; color: var(--ink-soft); }
 .detail-3d { height: 240px; border-radius: 10px; overflow: hidden; }
 .detail .hint { border-top: 0; padding: 6px 0 10px; }
+#dTable { display: block; overflow-x: auto; }
+#dTable .sku-cell { width: 100%; }
+#dTable .sku-cell b { display: block; overflow-wrap: anywhere; }
+#dTable .sku-cell .sub { display: block; }
 
 /* ---- SKU list ---- */
 

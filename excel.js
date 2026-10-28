@@ -126,8 +126,8 @@ const Excel = (function () {
       if (!(s.length > 0 && s.width > 0 && s.height > 0)) {
         notes.push({ line: line, sku: s.sku, text: "box size incomplete, cannot be placed" });
       }
-      if (!(s.totalBoxes > 0) && !(s.qtyPerBox > 0)) {
-        notes.push({ line: line, sku: s.sku, text: "no box count and no qty per box" });
+      if (s.totalBoxes === null && !(s.qtyPerBox > 0) && s.neededQty > 0) {
+        notes.push({ line: line, sku: s.sku, text: "needs " + s.neededQty + " but has no Total # of boxes or Qty per box, so it cannot be placed" });
       }
       s.line = line;
       skus.push(s);
@@ -206,13 +206,14 @@ const Excel = (function () {
       "no-size": "Box size missing",
       "no-room": "Racks full",
       "none-needed": "No boxes needed",
+      "no-count": "No Total # of boxes or Qty per box in the sheet",
+      "skipped": "Tier set to get no shelves",
     };
     const bySku = [["Tier", "Category", "SKU", "Boxes needed", "Boxes placed", "Not placed", "Boxes per full shelf", "Locations", "Note"]];
-    const ordered = allocation.results.slice().sort((a, b) =>
-      Allocate.compareText(a.sku.tier, b.sku.tier) || Allocate.compareText(a.sku.category, b.sku.category) ||
-      Allocate.compareText(a.sku.sku, b.sku.sku));
+    // In priority order, the same order the shelves were handed out in.
+    const ordered = allocation.results.slice().sort((a, b) => a.order - b.order);
     for (const r of ordered) {
-      bySku.push([r.sku.tier, r.sku.category, r.sku.sku, r.wanted, r.placed, r.unplaced, r.perShelf || "",
+      bySku.push([r.sku.tier, r.sku.category, r.sku.sku, r.problem === "no-count" ? "" : r.wanted, r.placed, r.unplaced, r.perShelf || "",
         r.spots.map((p) => p.label + " (" + p.boxes + ")").join(", "), r.problem ? WHY[r.problem] : ""]);
     }
 
