@@ -127,6 +127,18 @@ Note that `serve.py` throws its request log away. Under `pythonw.exe` there
 is no console, so there is no `sys.stderr` for the usual logging to write to,
 and the attempt would break the request halfway through.
 
+### Releasing a change
+
+Every script and the stylesheet are loaded as `name.js?v=...` from
+`index.html`. **Change that version whenever any `.js` or `.css` file
+changes.** A browser that already holds an older copy of a file will
+otherwise go on using it beside the new page -- which is exactly how an
+import once failed with *Cannot read properties of undefined (reading
+'save')*: a new import page talking to yesterday's `db.js`.
+
+`serve.py` also sends `Cache-Control: no-cache`, so the page itself is
+always checked for a newer copy.
+
 ## Sharing through Supabase
 
 Without Supabase, the saved racks, box sizes and imported sheet live in the

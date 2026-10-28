@@ -111,6 +111,12 @@ const Importer = (function () {
 
   el.use.addEventListener("click", async function () {
     if (!parsed || !parsed.ok) return;
+    // A browser holding an old copy of db.js next to this page has no
+    // DB.imports. Say what to do rather than fail with a JavaScript error.
+    if (!DB.imports) {
+      alert("This page is a mix of old and new files. Press Ctrl+F5 to reload it fully, then import again.");
+      return;
+    }
     const now = Dashboard.current();
     if (now && !confirm("This replaces “" + now.import.file_name + "” (" + now.skus.length +
       " SKUs) for everyone who opens the racks. Go ahead?")) return;
