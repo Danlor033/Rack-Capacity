@@ -34,13 +34,38 @@ how many boxes you have — how many racks that needs.
 
 ## Running it
 
-Any static web server will do; there is no build step.
+There is no build step -- it is a folder of files and any static web server
+will do. On the machine that hosts it, `serve.py` is that server:
 
 ```bash
-python -m http.server 8794
+python serve.py
 ```
 
 Then open <http://localhost:8794>.
+
+### Keeping it running on one PC
+
+On OLT-0285 it starts by itself. Two shortcuts do it:
+
+| Shortcut | Where it lives | What it does |
+| --- | --- | --- |
+| `Rack Planner server` | the Startup folder | Runs `pythonw serve.py` at sign-in -- no window, no terminal. |
+| `Rack Planner` | the Desktop | Runs `open-rack-planner.vbs`: opens the app, first starting the server if nothing is serving. |
+
+`serve.py` listens on every address, so other machines on the office network
+reach it too:
+
+- <http://OLT-0285:8794> -- the host name, which does not change
+- <http://10.2.11.31:8794> -- the address today, which DHCP may change
+
+Nothing is published to the internet; this only works for people already on
+the same network. Windows Firewall already allows this `pythonw.exe` inbound
+on the Public profile. If the network is ever reclassified Private or Domain,
+that allowance will need repeating for the new profile.
+
+Note that `serve.py` throws its request log away. Under `pythonw.exe` there
+is no console, so there is no `sys.stderr` for the usual logging to write to,
+and the attempt would break the request halfway through.
 
 ## Saved racks and box sizes
 
