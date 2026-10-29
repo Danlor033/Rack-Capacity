@@ -94,24 +94,29 @@ const DB = (function () {
   const LOCAL_IMPORT = "rackPlanner.import";
   const PAGE = 1000; // the most rows Supabase hands back in one go
 
+  // The fields that can be edited after import, and the column each lives in.
+  // needed_qty_15d and total_boxes are no longer read or written: both are
+  // worked out from sold per day, the days rule and qty per box.
+  const COLUMNS = {
+    soldPerDay: "sold_per_day", quantity: "quantity",
+    length: "length_cm", width: "width_cm", height: "height_cm",
+    qtyPerBox: "qty_per_box",
+  };
+
   function toRow(s, importId, line) {
-    return {
+    const row = {
       import_id: importId, line_no: line,
       tier: s.tier || null, category: s.category || null, sku: s.sku,
-      sold_per_day: s.soldPerDay, quantity: s.quantity,
-      length_cm: s.length, width_cm: s.width, height_cm: s.height,
-      needed_qty_15d: s.neededQty, qty_per_box: s.qtyPerBox, total_boxes: s.totalBoxes,
     };
+    for (const k in COLUMNS) row[COLUMNS[k]] = s[k] === undefined ? null : s[k];
+    return row;
   }
 
   // numeric columns come back from PostgREST as numbers, or as null
   function fromRow(r) {
-    return {
-      tier: r.tier || "", category: r.category || "", sku: r.sku,
-      soldPerDay: r.sold_per_day, quantity: r.quantity,
-      length: r.length_cm, width: r.width_cm, height: r.height_cm,
-      neededQty: r.needed_qty_15d, qtyPerBox: r.qty_per_box, totalBoxes: r.total_boxes,
-    };
+    const s = { id: r.id, tier: r.tier || "", category: r.category || "", sku: r.sku };
+    for (const k in COLUMNS) s[k] = r[COLUMNS[k]];
+    return s;
   }
 
   const imports = {
@@ -145,7 +150,7 @@ const DB = (function () {
           id: localId(), file_name: fileName, row_count: skus.length,
           rules: rules || {}, imported_at: new Date().toISOString(),
         };
-        const data = { import: head, skus: skus };
+        const data = { import: head, skus: skus.map((s, i) => Object.assign({}, s, { id: i + 1 })) };
         localStorage.setItem(LOCAL_IMPORT, JSON.stringify(data));
         return data;
       }
@@ -162,7 +167,30 @@ const DB = (function () {
         await rest(IMPORT_TABLE, { method: "DELETE", query: "?id=eq." + head.id }).catch(function () {});
         throw e;
       }
-      return { import: head, skus: skus };
+      // Read it back: the rows need the ids the database gave them before
+      // anybody can edit one.
+      return imports.latest();
+    },
+
+    // Change some of one SKU's numbers. `fields` uses the app's names
+    // (soldPerDay, qtyPerBox ...); anything not editable is refused.
+    async updateSku(id, fields) {
+      const patch = {};
+      for (const k in fields) {
+        if (!COLUMNS[k]) throw new Error(k + " cannot be edited");
+        patch[COLUMNS[k]] = fields[k];
+      }
+      if (!configured()) {
+        const data = JSON.parse(localStorage.getItem(LOCAL_IMPORT));
+        const row = data.skus.find((s) => s.id === id);
+        if (row) Object.assign(row, fields);
+        localStorage.setItem(LOCAL_IMPORT, JSON.stringify(data));
+        return;
+      }
+      await rest(SKU_TABLE, {
+        method: "PATCH", query: "?id=eq." + encodeURIComponent(id),
+        body: patch, prefer: "return=minimal",
+      });
     },
 
     async setRules(id, rules) {

@@ -15,12 +15,15 @@ const Excel = (function () {
     { key: "length", label: "Length", names: ["length", "lengthcm", "l", "lcm"], number: true, required: true },
     { key: "width", label: "Width", names: ["width", "widthcm", "w", "wcm"], number: true, required: true },
     { key: "height", label: "Height", names: ["height", "heightcm", "h", "hcm"], number: true, required: true },
-    { key: "neededQty", label: "Needed qty in 4KB for 15 days", names: ["neededqtyin4kbfor15days", "neededqty"], number: true },
     { key: "qtyPerBox", label: "Qty per box", names: ["qtyperbox", "quantityperbox", "pcsperbox", "pcsbox", "qtybox", "perbox"], number: true },
-    { key: "totalBoxes", label: "Total number of boxes", names: ["totalnumberofboxes", "totalboxes", "numberofboxes", "noofboxes"], number: true },
   ];
 
   const norm = (v) => String(v === null || v === undefined ? "" : v).toLowerCase().replace(/[^a-z0-9]/g, "");
+
+  // Columns an older sheet may still have that are now worked out instead:
+  // needed qty is sold per day x days, and boxes are needed qty / qty per box.
+  // They are recognised only so they are never mistaken for something else.
+  const DERIVED = { neededQty: "Needed qty", totalBoxes: "Total number of boxes" };
 
   // A header nobody spelled exactly as expected. The order matters: "Qty per
   // box", "Needed qty" and "Total number of boxes" all contain words that
@@ -108,6 +111,9 @@ const Excel = (function () {
 
     const skus = [];
     const notes = [];
+    const headerRow = best.rows[best.headerRow] || [];
+    const ignored = Object.keys(DERIVED).filter((k) => best.map[k] !== undefined)
+      .map((k) => toText(headerRow[best.map[k]]) || DERIVED[k]);
     for (let r = best.headerRow + 1; r < best.rows.length; r++) {
       const cells = best.rows[r] || [];
       const line = r + 1; // as Excel numbers it
@@ -126,8 +132,8 @@ const Excel = (function () {
       if (!(s.length > 0 && s.width > 0 && s.height > 0)) {
         notes.push({ line: line, sku: s.sku, text: "box size incomplete, cannot be placed" });
       }
-      if (s.totalBoxes === null && !(s.qtyPerBox > 0) && s.neededQty > 0) {
-        notes.push({ line: line, sku: s.sku, text: "needs " + s.neededQty + " but has no Total # of boxes or Qty per box, so it cannot be placed" });
+      if (s.soldPerDay > 0 && !(s.qtyPerBox > 0)) {
+        notes.push({ line: line, sku: s.sku, text: "sells " + s.soldPerDay + " a day but has no Qty per box, so its boxes cannot be counted" });
       }
       s.line = line;
       skus.push(s);
@@ -149,6 +155,7 @@ const Excel = (function () {
       missing: missing,
       skus: skus,
       notes: notes,
+      ignored: ignored,
     };
   }
 
@@ -173,8 +180,8 @@ const Excel = (function () {
   function template() {
     const aoa = [
       FIELDS.map((f) => f.label),
-      ["A", "Pet Food", "SKU-0001", 40, 1200, 40, 30, 25, 600, 12, 50],
-      ["B", "Litter", "SKU-0002", 8, 300, 59, 46, 41, 120, 6, 20],
+      ["Tier 1", "Wallet", "SKU-0001", 40, 1200, 60, 46.8, 42, 195],
+      ["Tier 2", "Bag Small", "SKU-0002", 8, 300, 59, 46.5, 41, 30],
     ];
     const book = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(book, sheet(aoa), "SKUs");
@@ -206,14 +213,20 @@ const Excel = (function () {
       "no-size": "Box size missing",
       "no-room": "Racks full",
       "none-needed": "No boxes needed",
-      "no-count": "No Total # of boxes or Qty per box in the sheet",
+      "no-count": "No Qty per box",
       "skipped": "Tier set to get no shelves",
     };
-    const bySku = [["Tier", "Category", "SKU", "Boxes needed", "Boxes placed", "Not placed", "Boxes per full shelf", "Locations", "Note"]];
+    // The SKU's numbers as they stand after any edits on the dashboard, so the
+    // sheet can go straight back into the master list.
+    const days = allocation.rules.days;
+    const bySku = [["Tier", "Category", "SKU", "Sold per day", "Quantity", "Length", "Width", "Height", "Qty per box",
+      "Needed qty (" + days + " days)", "Boxes needed", "Boxes placed", "Not placed", "Boxes per full shelf", "Locations", "Note"]];
     // In priority order, the same order the shelves were handed out in.
     const ordered = allocation.results.slice().sort((a, b) => a.order - b.order);
     for (const r of ordered) {
-      bySku.push([r.sku.tier, r.sku.category, r.sku.sku, r.problem === "no-count" ? "" : r.wanted, r.placed, r.unplaced, r.perShelf || "",
+      const s = r.sku;
+      bySku.push([s.tier, s.category, s.sku, s.soldPerDay, s.quantity, s.length, s.width, s.height, s.qtyPerBox,
+        r.needed, r.problem === "no-count" ? "" : r.wanted, r.placed, r.unplaced, r.perShelf || "",
         r.spots.map((p) => p.label + " (" + p.boxes + ")").join(", "), r.problem ? WHY[r.problem] : ""]);
     }
 

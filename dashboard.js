@@ -23,6 +23,7 @@ const Dashboard = (function () {
     dLabel: $("dLabel"), dWhere: $("dWhere"), dFill: $("dFill"), dCanvas: $("dCanvas"), dTable: $("dTable"),
     skuFilter: $("skuFilter"), skuTable: $("skuTable"),
     tierList: $("tierList"), gap: $("dataGap"), gapText: $("dataGapText"), gapShow: $("dataGapShow"),
+    ruleDays: $("ruleDays"), skuStatus: $("skuStatus"),
   };
 
   const state = {
@@ -95,6 +96,7 @@ const Dashboard = (function () {
     el.ruleFill.value = state.rules.fill;
     el.ruleMix.value = state.rules.mix;
     el.ruleTurn.value = state.rules.turn;
+    el.ruleDays.value = state.rules.days;
 
     const when = new Date(state.data.import.imported_at);
     el.source.textContent = state.data.import.file_name + " · " + state.data.skus.length.toLocaleString() +
@@ -133,10 +135,10 @@ const Dashboard = (function () {
     // is said up front.
     if (s.skusNoCount) {
       const units = state.alloc.results.filter((r) => r.problem === "no-count")
-        .reduce((n, r) => n + (Number(r.sku.neededQty) || 0), 0);
-      el.gapText.innerHTML = "<b>" + s.skusNoCount + " SKUs</b> need stock (" + units.toLocaleString() +
-        " units over 15 days) but have neither <em>Total # of boxes</em> nor <em>Qty per box</em>, " +
-        "so the racks have no room set aside for them. Fill one in and import the sheet again.";
+        .reduce((n, r) => n + r.needed, 0);
+      el.gapText.innerHTML = "<b>" + s.skusNoCount + " SKUs</b> sell (" + units.toLocaleString() +
+        " units over " + state.rules.days + " days) but have no <em>Qty per box</em>, so their boxes " +
+        "cannot be counted and the racks have no room set aside for them. Fill it in, in the SKU list below.";
       el.gap.hidden = false;
     } else {
       el.gap.hidden = true;
@@ -147,6 +149,7 @@ const Dashboard = (function () {
     const pick = (sel) => sel.options[sel.selectedIndex].text;
     const skip = state.rules.skipTiers || [];
     el.rulesSummary.textContent = "— " + [
+      state.rules.days + " days of stock",
       state.alloc.tiers.filter((t) => skip.indexOf(t) < 0).map((t) => t || "(no tier)").join(" › "),
       pick(el.ruleMix).toLowerCase(),
     ].join(", ");
@@ -286,15 +289,35 @@ const Dashboard = (function () {
     "no-size": "box size missing",
     "no-room": "racks are full",
     "none-needed": "no boxes needed",
-    "no-count": "no box count in the sheet",
+    "no-count": "no qty per box",
     "skipped": "tier gets no shelves",
   };
   const ATTENTION = ["too-big", "no-size", "no-room", "no-count"];
 
+  // The numbers a SKU's boxes are worked out from, editable in place.
+  const EDITABLE = [
+    { key: "soldPerDay", label: "Sold / day" },
+    { key: "quantity", label: "Quantity" },
+    { key: "length", label: "L" },
+    { key: "width", label: "W" },
+    { key: "height", label: "H" },
+    { key: "qtyPerBox", label: "Qty / box" },
+  ];
+
+  // A box that is empty but needed for this SKU to get a shelf.
+  function wanting(r, key) {
+    const s = r.sku;
+    if (key === "qtyPerBox") return r.problem === "no-count";
+    if (key === "length" || key === "width" || key === "height") return r.problem === "no-size" || !(s[key] > 0) && s.soldPerDay > 0;
+    return false;
+  }
+
   function renderSkus() {
     const filter = el.skuFilter.value;
+    // Sheet order, not priority order: a row must not jump away while
+    // somebody is typing in it. The # column still gives its priority.
     const rows = state.alloc.results.slice()
-      .sort((a, b) => a.order - b.order)
+      .sort((a, b) => a.index - b.index)
       .filter(function (r) {
         if (filter === "missing") return ATTENTION.indexOf(r.problem) >= 0;
         if (filter === "nocount") return r.problem === "no-count";
@@ -303,27 +326,39 @@ const Dashboard = (function () {
         return true;
       });
 
-    let html = "<thead><tr><th>#</th><th>Tier</th><th>Category</th><th>SKU</th><th class=\"num\">Sold / day</th>" +
-      "<th class=\"num\">Boxes</th><th class=\"num\">Placed</th><th class=\"num\">No shelf</th>" +
-      "<th class=\"num\">Per shelf</th><th>Locations</th></tr></thead><tbody>";
+    const days = state.rules.days;
+    let html = "<thead><tr><th title=\"Priority: the order shelves were handed out in\">#</th><th>Tier</th><th>Category</th><th>SKU</th>" +
+      EDITABLE.map((f) => '<th class="num edit-col">' + f.label + "</th>").join("") +
+      '<th class="num" title="Sold per day \u00d7 ' + days + '">Needed (' + days + " d)</th>" +
+      '<th class="num" title="Needed \u00f7 Qty per box, rounded up">Boxes</th><th class="num">Placed</th>' +
+      '<th class="num">No shelf</th><th class="num">Per shelf</th><th>Locations</th></tr></thead><tbody>';
     for (const r of rows) {
       const s = r.sku;
       const where = r.spots.map((p) => '<a href="#" data-loc="' + p.label + '">' + p.label + "</a>" +
-        (p.boxes ? ' <span class="sub">×' + p.boxes + "</span>" : "")).join(", ");
+        (p.boxes ? ' <span class="sub">\u00d7' + p.boxes + "</span>" : "")).join(", ");
       const attention = ATTENTION.indexOf(r.problem) >= 0;
       const note = r.problem && r.problem !== "none-needed"
         ? ' <span class="tag' + (attention ? " bad" : "") + '">' + WHY[r.problem] + "</span>" : "";
+      const inputs = EDITABLE.map(function (f) {
+        const v = s[f.key];
+        return '<td class="num edit-col"><input class="cell-in' + (wanting(r, f.key) ? " want" : "") +
+          '" type="number" min="0" step="any" inputmode="decimal" data-sku="' + r.index +
+          '" data-field="' + f.key + '" value="' + (v === null || v === undefined ? "" : v) + '"></td>';
+      }).join("");
       html += '<tr data-sku="' + r.index + '"' + (attention ? ' class="short"' : "") + ">" +
         '<td class="sub">' + (r.order + 1) + "</td>" +
-        "<td>" + esc(s.tier) + "</td><td>" + esc(s.category) + "</td><td><b>" + esc(s.sku) + "</b></td>" +
-        '<td class="num">' + fmt(s.soldPerDay) + '</td><td class="num">' + (r.problem === "no-count" ? "?" : fmt(r.wanted)) + "</td>" +
+        "<td>" + esc(s.tier) + "</td><td>" + esc(s.category) + '</td><td class="sku-name"><b>' + esc(s.sku) + "</b></td>" +
+        inputs +
+        '<td class="num">' + fmt(r.needed) + "</td>" +
+        '<td class="num"><b>' + (r.problem === "no-count" ? "?" : fmt(r.wanted)) + "</b></td>" +
         '<td class="num">' + fmt(r.placed) + '</td><td class="num">' + (r.unplaced ? fmt(r.unplaced) : "") + "</td>" +
         '<td class="num">' + (r.perShelf ? fmt(r.perShelf) : "") + "</td>" +
         "<td>" + where + note + "</td></tr>";
     }
-    if (!rows.length) html += '<tr><td colspan="10" class="sub">Nothing to show.</td></tr>';
+    if (!rows.length) html += '<tr><td colspan="16" class="sub">Nothing to show.</td></tr>';
     el.skuTable.innerHTML = html + "</tbody>";
   }
+
 
   // --- interaction -----------------------------------------------------------
 
@@ -351,6 +386,7 @@ const Dashboard = (function () {
       select(link.dataset.loc, true);
       return;
     }
+    if (e.target.closest("input")) return;
     const tr = e.target.closest("tr[data-sku]");
     if (!tr) return;
     const r = state.alloc.results[Number(tr.dataset.sku)];
@@ -359,6 +395,72 @@ const Dashboard = (function () {
     renderMap();
     if (r.spots.length) select(r.spots[0].label, true);
   });
+
+  // An edit is saved the moment it is committed (Enter, Tab, or clicking
+  // away), and the racks are laid out again with the new numbers.
+  let saving = 0;
+  let failed = null;
+  function status() {
+    if (failed) {
+      el.skuStatus.textContent = failed;
+      el.skuStatus.className = "save-status bad-text";
+    } else {
+      el.skuStatus.textContent = saving ? "Saving\u2026" : "Changes are saved for everyone";
+      el.skuStatus.className = "save-status sub";
+    }
+  }
+
+  el.skuTable.addEventListener("change", function (e) {
+    const input = e.target.closest("input[data-field]");
+    if (!input) return;
+    const r = state.alloc.results[Number(input.dataset.sku)];
+    const field = input.dataset.field;
+    const raw = input.value.trim();
+    const value = raw === "" ? null : Number(raw);
+    if (value !== null && !(isFinite(value) && value >= 0)) {
+      input.value = r.sku[field] === null || r.sku[field] === undefined ? "" : r.sku[field];
+      return;
+    }
+    const before = r.sku[field] === undefined ? null : r.sku[field];
+    if (value === before) return;
+    if (!r.sku.id) {
+      failed = "This sheet was loaded before editing existed \u2014 reload the page, then edit.";
+      status();
+      return;
+    }
+
+    r.sku[field] = value;
+    failed = null;
+    saving++;
+    status();
+    const patch = {};
+    patch[field] = value;
+    DB.imports.updateSku(r.sku.id, patch)
+      .catch(function (err) {
+        console.error(err);
+        r.sku[field] = before;
+        failed = "Could not save " + r.sku.sku + ": " + err.message + " \u2014 the old value is back.";
+        refresh();
+      })
+      .finally(function () { saving--; status(); });
+    refresh();
+  });
+
+  // Lay out again and redraw, putting the cursor back where it was -- the
+  // table is rebuilt, so the box being typed in is a new element.
+  let refreshTimer = null;
+  function refresh() {
+    clearTimeout(refreshTimer);
+    refreshTimer = setTimeout(function () {
+      const a = document.activeElement;
+      const keep = a && a.dataset && a.dataset.field ? { sku: a.dataset.sku, field: a.dataset.field } : null;
+      recompute();
+      if (keep) {
+        const again = el.skuTable.querySelector('input[data-sku="' + keep.sku + '"][data-field="' + keep.field + '"]');
+        if (again) { again.focus(); again.select(); }
+      }
+    }, 0);
+  }
 
   let searchTimer = null;
   el.search.addEventListener("input", function () {
@@ -383,10 +485,13 @@ const Dashboard = (function () {
   // A rule change re-lays the racks at once and is saved for everyone.
   let saveTimer = null;
   function ruleChanged() {
+    const days = Math.round(Number(el.ruleDays.value));
     state.rules = Object.assign({}, state.rules, {
       order: el.ruleOrder.value, fill: el.ruleFill.value,
       mix: el.ruleMix.value, turn: el.ruleTurn.value,
+      days: days >= 1 && days <= 365 ? days : state.rules.days,
     });
+    el.ruleDays.value = state.rules.days;
     recompute();
     clearTimeout(saveTimer);
     saveTimer = setTimeout(function () {
@@ -395,7 +500,7 @@ const Dashboard = (function () {
         .catch(function (e) { console.error(e); alert("The new rules could not be saved: " + e.message); });
     }, 400);
   }
-  [el.ruleOrder, el.ruleFill, el.ruleMix, el.ruleTurn].forEach((s) => s.addEventListener("change", ruleChanged));
+  [el.ruleOrder, el.ruleFill, el.ruleMix, el.ruleTurn, el.ruleDays].forEach((s) => s.addEventListener("change", ruleChanged));
 
   // Reordering a tier, or taking it off the racks altogether.
   el.tierList.addEventListener("click", function (e) {

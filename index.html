@@ -4,7 +4,7 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>Rack Planner</title>
-<link rel="stylesheet" href="style.css?v=2026-10-28b" />
+<link rel="stylesheet" href="style.css?v=2026-10-29b" />
 </head>
 <body>
 
@@ -70,6 +70,9 @@
     <details class="rules card" id="rulesBox">
       <summary>How shelves are chosen <span class="sub" id="rulesSummary"></span></summary>
       <div class="rules-grid">
+        <label class="field"><span>Days of stock in 4KB</span>
+          <input id="ruleDays" type="number" min="1" max="365" step="1" value="15" />
+        </label>
         <label class="field"><span>Who goes first</span>
           <select id="ruleOrder">
             <option value="tier">Tier, then sold per day</option>
@@ -131,7 +134,10 @@
 
     <div class="card sku-card">
       <div class="sku-head">
-        <h3>SKUs</h3>
+        <div>
+          <h3>SKUs</h3>
+          <p class="save-status sub" id="skuStatus">Edit Sold / day, Quantity, L, W, H or Qty / box in place &mdash; changes are saved for everyone</p>
+        </div>
         <select id="skuFilter">
           <option value="all">All SKUs</option>
           <option value="missing">Needs attention</option>
@@ -158,8 +164,9 @@
     <div class="row-btns">
       <button class="ghost" type="button" data-template>Download the template</button>
     </div>
-    <p class="sub">Boxes to place come from <em>Total number of boxes</em>. Where that is blank,
-      <em>Needed qty in 4KB for 15 days &divide; Qty per box</em>, rounded up. Sizes are read as centimetres.</p>
+    <p class="sub">Needed qty is <em>Sold per day &times; days</em> (15 unless changed on the Racks page), and
+      boxes are <em>Needed qty &divide; Qty per box</em>, rounded up. Sizes are read as centimetres.
+      Every number can be corrected later on the Racks page.</p>
   </div>
 
   <div class="card" id="importResult" hidden>
@@ -279,17 +286,17 @@
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-<script src="config.js?v=2026-10-28b"></script>
-<script src="packer.js?v=2026-10-28b"></script>
-<script src="layout.js?v=2026-10-28b"></script>
-<script src="allocate.js?v=2026-10-28b"></script>
-<script src="db.js?v=2026-10-28b"></script>
-<script src="excel.js?v=2026-10-28b"></script>
-<script src="view3d.js?v=2026-10-28b"></script>
-<script src="view2d.js?v=2026-10-28b"></script>
-<script src="app.js?v=2026-10-28b"></script>
-<script src="dashboard.js?v=2026-10-28b"></script>
-<script src="importer.js?v=2026-10-28b"></script>
-<script src="pages.js?v=2026-10-28b"></script>
+<script src="config.js?v=2026-10-29b"></script>
+<script src="packer.js?v=2026-10-29b"></script>
+<script src="layout.js?v=2026-10-29b"></script>
+<script src="allocate.js?v=2026-10-29b"></script>
+<script src="db.js?v=2026-10-29b"></script>
+<script src="excel.js?v=2026-10-29b"></script>
+<script src="view3d.js?v=2026-10-29b"></script>
+<script src="view2d.js?v=2026-10-29b"></script>
+<script src="app.js?v=2026-10-29b"></script>
+<script src="dashboard.js?v=2026-10-29b"></script>
+<script src="importer.js?v=2026-10-29b"></script>
+<script src="pages.js?v=2026-10-29b"></script>
 </body>
 </html>

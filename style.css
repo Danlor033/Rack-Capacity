@@ -270,7 +270,7 @@ button { cursor: pointer; }
 
 h2, h3 { letter-spacing: -.01em; }
 
-.tag { display: inline-block; font-size: 11px; padding: 1px 7px; border-radius: 99px; background: var(--bg); border: 1px solid var(--line); }
+.tag { display: inline-block; white-space: nowrap; font-size: 11px; padding: 1px 7px; border-radius: 99px; background: var(--bg); border: 1px solid var(--line); }
 .tag.bad { color: var(--warn); border-color: currentColor; background: transparent; }
 .bad-text { color: var(--warn); }
 
@@ -332,7 +332,7 @@ h2, h3 { letter-spacing: -.01em; }
 .rules { padding: 0; }
 .rules summary { padding: 12px 16px; cursor: pointer; font-weight: 600; font-size: 14px; }
 .rules summary .sub { font-weight: 400; display: inline; }
-.rules-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; padding: 0 16px; }
+.rules-grid { display: grid; grid-template-columns: 150px repeat(4, minmax(0, 1fr)); gap: 12px; padding: 0 16px; }
 .rules-note { padding: 0 16px 14px; }
 
 .tier-rank { padding: 12px 16px 4px; }
@@ -430,6 +430,22 @@ h2, h3 { letter-spacing: -.01em; }
 /* ---- SKU list ---- */
 
 .sku-card { padding: 14px 16px; }
+.save-status { margin: 2px 0 0; }
+
+/* Editable numbers in the SKU list: quiet until hovered or focused, and
+   marked when an empty one is what keeps the SKU off the racks. */
+.tbl input.cell-in {
+  width: 64px; padding: 3px 6px; text-align: right;
+  font: inherit; font-size: 12.5px; font-variant-numeric: tabular-nums; color: var(--ink);
+  background: transparent; border: 1px solid transparent; border-radius: 5px;
+  -moz-appearance: textfield;
+}
+.tbl input.cell-in::-webkit-outer-spin-button, .tbl input.cell-in::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+.tbl tr:hover input.cell-in { border-color: var(--line); background: var(--card); }
+.tbl input.cell-in:focus { outline: 2px solid var(--accent); outline-offset: -1px; background: var(--card); }
+.tbl input.cell-in.want { border-color: var(--warn); border-style: dashed; background: color-mix(in srgb, var(--warn) 8%, transparent); }
+.tbl td.edit-col { padding-top: 3px; padding-bottom: 3px; }
+.tbl td.sku-name { white-space: nowrap; }
 .sku-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
 .sku-head h3 { margin: 0; }
 .sku-head select { width: auto; }

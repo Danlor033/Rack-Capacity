@@ -24,16 +24,34 @@ Column 1, Layer 1, and Layer 1 is the floor. The layout lives in
 
 The Import page takes `.xlsx` or `.xls` with these columns, in any order:
 Tier, Category, SKU, Sold per day, Quantity, Length, Width, Height,
-Needed qty in 4KB for 15 days, Qty per box, Total number of boxes.
+Qty per box.
 
 - Headers can sit below a title row, and close spellings are recognised
-  (`Item Code`, `L (cm)`, `Pcs/Box`, `No. of Boxes` ...). The page shows which
-  header it matched to which column before anything is saved.
-- **Boxes to place** come from *Total number of boxes*. Where that is blank,
-  *Needed qty for 15 days ÷ Qty per box*, rounded up.
+  (`Item Code`, `L (cm)`, `Pcs/Box` ...). The page shows which header it
+  matched to which column before anything is saved.
+- The two numbers that used to be typed in are now worked out:
+  - **Needed qty** = *Sold per day × days*, where days is a setting on the
+    Racks page (15 to start with).
+  - **Boxes** = *Needed qty ÷ Qty per box*, **rounded up** -- a part-full
+    carton still takes a whole carton's room on the shelf.
+
+  An older sheet that still has *Needed qty* or *Total # of boxes* columns
+  imports fine; those two columns are skipped, and the page says so.
 - Sizes are read as centimetres.
-- Saving a sheet replaces the previous one for everybody. The Import page has
-  a template to download.
+- Saving a sheet replaces the previous one for everybody -- including any
+  numbers corrected on the dashboard. The Import page has a template to
+  download.
+
+### Correcting numbers after import
+
+In the SKU list on the Racks page, *Sold per day*, *Quantity*, *L*, *W*,
+*H* and *Qty per box* can be edited in place. A change is saved the moment
+it is committed (Enter, Tab, or clicking away) and the racks are laid out
+again at once. An empty box that is keeping a SKU off the racks -- usually
+*Qty per box* -- is outlined, and the *Needs attention* filter lists every
+such SKU.
+
+Other PCs see an edit the next time they load the page.
 
 ### How shelves are chosen
 
@@ -44,12 +62,13 @@ they need -- and slices from different SKUs sit side by side. Nothing is
 stacked on, or hidden behind, another SKU: every SKU on a shelf faces the
 aisle.
 
-Four rules, set on the dashboard and saved with the sheet so every PC sees
+These rules, set on the dashboard and saved with the sheet so every PC sees
 the same racks:
 
 | Rule | Choices |
 | --- | --- |
-| Who goes first | Tier then sold per day · Category then tier · Sold per day only |
+| Days of stock in 4KB | Any whole number of days; Needed qty is Sold per day × this |
+| Who goes first | Tier then sold per day · Category then tier · Sold per day only (tiers have their own order, and any tier can be left off) |
 | Best shelves | Layer 1 everywhere, then 2, then 3 · Row by row · Label order |
 | Sharing a shelf | Same category only · Any SKU · Never (one SKU per shelf) |
 | Turning boxes | Any way up · Upright only |

@@ -69,6 +69,10 @@ const Importer = (function () {
       '<div class="kpi' + (st.boxesUnplaced ? " bad" : "") + '"><span>' + st.boxesUnplaced.toLocaleString() +
       "</span><label>boxes with no shelf</label></div>" +
       "</div>" + columnsHtml();
+    if (parsed.ignored.length) {
+      html += '<p class="sub">Not used: ' + parsed.ignored.map((h) => "“" + esc(h) + "”").join(", ") +
+        ". Needed qty is worked out as Sold per day × days, and boxes as that ÷ Qty per box.</p>";
+    }
     el.summary.innerHTML = html;
 
     if (parsed.notes.length) {
@@ -119,7 +123,7 @@ const Importer = (function () {
     }
     const now = Dashboard.current();
     if (now && !confirm("This replaces “" + now.import.file_name + "” (" + now.skus.length +
-      " SKUs) for everyone who opens the racks. Go ahead?")) return;
+      " SKUs) for everyone who opens the racks, including any numbers edited on the dashboard. Go ahead?")) return;
 
     el.use.disabled = true;
     const label = el.use.textContent;

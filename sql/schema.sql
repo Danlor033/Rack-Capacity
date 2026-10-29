@@ -75,9 +75,9 @@ create table if not exists rack_skus (
   length_cm       numeric,
   width_cm        numeric,
   height_cm       numeric,
-  needed_qty_15d  numeric,
+  needed_qty_15d  numeric,   -- no longer read or written: sold per day x days
   qty_per_box     numeric,
-  total_boxes     numeric
+  total_boxes     numeric    -- no longer read or written: needed qty / qty per box
 );
 
 create index if not exists rack_skus_import_line on rack_skus (import_id, line_no);

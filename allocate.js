@@ -19,6 +19,7 @@ const Allocate = (function () {
     turn: "any",     // "any" | "upright"
     tiers: null,     // tier names, best first; null = tierDefaults()
     skipTiers: [],   // tiers that get no shelf at all
+    days: 15,        // days of sales 4KB holds stock for
   };
 
   function text(v) {
@@ -35,7 +36,6 @@ const Allocate = (function () {
   }
 
   const num = (v) => (typeof v === "number" && isFinite(v) ? v : 0);
-  const given = (v) => typeof v === "number" && isFinite(v);
 
   // Tier names are words, not letters -- "Tier 1", "GWP", "New SKU",
   // "Discontinue" -- so alphabetical order would put Discontinue first. Until
@@ -73,15 +73,17 @@ const Allocate = (function () {
     };
   }
 
-  // How many boxes a SKU needs room for, or null when the sheet does not say
-  // and cannot be made to. The sheet's own Total wins whenever it is filled
-  // in -- even when it is 0 -- because that number is the planner's decision.
-  // Only when it is blank is it worked out: needed quantity over quantity per
-  // box, rounded up.
-  function boxesWanted(s) {
-    if (given(s.totalBoxes)) return Math.max(0, Math.ceil(s.totalBoxes - EPS));
+  // What 4KB has to hold for a SKU: enough to sell from for `days` days.
+  function neededQty(s, days) {
+    return num(s.soldPerDay) * days;
+  }
+
+  // How many boxes that comes to, or null when it cannot be known because
+  // nobody has said how many units a box holds. Rounded up: a part-full
+  // carton still takes a whole carton's room on the shelf.
+  function boxesWanted(s, days) {
+    const needed = neededQty(s, days);
     const perBox = num(s.qtyPerBox);
-    const needed = given(s.neededQty) ? s.neededQty : num(s.soldPerDay) * 15;
     if (perBox <= 0) return needed > 0 ? null : 0;
     return Math.max(0, Math.ceil(needed / perBox - EPS));
   }
@@ -144,6 +146,8 @@ const Allocate = (function () {
       return rec;
     }
 
+    const days = num(rules.days) > 0 ? rules.days : DEFAULT_RULES.days;
+    rules.days = days;
     const tiers = tierOrder(skus, rules.tiers);
     const rankOf = new Map(tiers.map((t, i) => [t, i]));
     const rank = (t) => (rankOf.has(text(t)) ? rankOf.get(text(t)) : tiers.length);
@@ -151,9 +155,10 @@ const Allocate = (function () {
     const ORDERS = makeOrders(rank);
 
     const results = skus.map(function (s, i) {
-      const wanted = boxesWanted(s);
+      const wanted = boxesWanted(s, days);
       return {
-        index: i, sku: s, wanted: wanted === null ? 0 : wanted, placed: 0, unplaced: 0,
+        index: i, sku: s, needed: neededQty(s, days),
+        wanted: wanted === null ? 0 : wanted, placed: 0, unplaced: 0,
         perShelf: 0, spots: [], problem: wanted === null ? "no-count" : null,
       };
     });
@@ -276,6 +281,7 @@ const Allocate = (function () {
     run: run,
     placementsOn: placementsOn,
     boxesWanted: boxesWanted,
+    neededQty: neededQty,
     tierOrder: tierOrder,
     compareText: compareText,
     DEFAULT_RULES: DEFAULT_RULES,
