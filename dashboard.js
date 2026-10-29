@@ -24,7 +24,8 @@ const Dashboard = (function () {
     ruleDays: $("ruleDays"), skuStatus: $("skuStatus"),
     catList: $("catList"), catHint: $("catHint"), skuAdd: $("skuAdd"),
     pickModal: $("pickModal"), pickTitle: $("pickTitle"), pickSub: $("pickSub"),
-    pickMap: $("pickMap"), pickClose: $("pickClose"),
+    pickMap: $("pickMap"), pickClose: $("pickClose"), pickLegend: $("pickLegend"),
+    mapLegend: $("mapLegend"),
     catStats: $("catStats"), catModal: $("catModal"), catTitle: $("catTitle"), catClose: $("catClose"), catAdd: $("catAdd"), catBody: $("catBody"),
     skuDialog: $("skuDialog"), skuForm: $("skuForm"), skuFormError: $("skuFormError"),
     skuCancel: $("skuCancel"), catOptions: $("catOptions"), tierOptions: $("tierOptions"),
@@ -64,13 +65,25 @@ const Dashboard = (function () {
     return map;
   }
 
+  // One colour per category, far enough apart to tell on the map, given in
+  // name order so a category keeps its colour as SKUs come and go. Past
+  // twenty, the wheel takes over.
+  const CATEGORY_COLORS = [
+    "#1f77b4", "#ff7f0e", "#2ca02c", "#d62728", "#9467bd", "#8c564b", "#e377c2", "#7f7f7f",
+    "#bcbd22", "#17becf", "#393b79", "#ffbb78", "#98df8a", "#ff9896", "#c5b0d5", "#c49c94",
+    "#f7b6d2", "#dbdb8d", "#9edae5", "#aec7e8",
+  ];
+
   function buildColors() {
     const skus = state.data.skus;
     const uniq = (f) => [...new Set(skus.map(f))].sort(Allocate.compareText);
     const tiers = new Map();
     uniq((s) => s.tier).forEach((t, i) => tiers.set(t, TIER_COLORS[i % TIER_COLORS.length]));
+    const names = uniq((s) => s.category || "");
+    const extra = wheel(names.slice(CATEGORY_COLORS.length));
+    const category = new Map(names.map((c, i) => [c, CATEGORY_COLORS[i] || extra.get(c)]));
     state.colors = {
-      category: wheel(uniq((s) => s.category)),
+      category: category,
       tier: tiers,
       sku: wheel(uniq((s) => s.sku)),
     };
@@ -79,7 +92,30 @@ const Dashboard = (function () {
   function colorOf(skuIndex) {
     const s = state.data.skus[skuIndex];
     const by = el.colorBy.value;
-    return state.colors[by].get(by === "category" ? s.category : by === "tier" ? s.tier : s.sku) || "#94a3b8";
+    return state.colors[by].get(by === "category" ? s.category || "" : by === "tier" ? s.tier : s.sku) || "#94a3b8";
+  }
+
+  function categoryColor(name) {
+    return state.colors.category.get(name || "") || "#94a3b8";
+  }
+
+  // The key to the map's colours: categories (or tiers), each with how many
+  // shelves it has. Ones with no shelf yet are shown faded.
+  function legendHtml(by) {
+    if (by === "sku") return '<span class="sub">Each SKU has its own colour.</span>';
+    const shelves = new Map();
+    for (const rec of state.alloc.locations.values()) {
+      const s = state.data.skus[rec.sections[0].sku];
+      const k = by === "tier" ? s.tier || "" : s.category || "";
+      shelves.set(k, (shelves.get(k) || 0) + 1);
+    }
+    const keys = [...state.colors[by].keys()];
+    return keys.map(function (k) {
+      const n = shelves.get(k) || 0;
+      return '<span' + (n ? "" : ' class="off"') + ' title="' + n + " shel" + (n === 1 ? "f" : "ves") + '">' +
+        '<i style="background:' + state.colors[by].get(k) + '"></i>' +
+        esc(k || (by === "tier" ? "(no tier)" : "(no category)")) + "</span>";
+    }).join("");
   }
 
   // --- loading -------------------------------------------------------------
@@ -188,11 +224,15 @@ const Dashboard = (function () {
       }
       if (rec.sections.length > 1) inner += '<b class="n">' + rec.sections.length + "</b>";
     }
-    return '<div class="' + cls.join(" ") + '" data-label="' + label + '" title="' + esc(tip) + '">' + inner + "</div>";
+    // An occupied shelf is tinted its colour all over, so a shelf with a
+    // single box still reads as its category; the bar shows how full it is.
+    const tint = rec ? ' style="background:color-mix(in srgb, ' + colorOf(rec.sections[0].sku) + ' 30%, transparent)"' : "";
+    return '<div class="' + cls.join(" ") + '" data-label="' + label + '"' + tint + ' title="' + esc(tip) + '">' + inner + "</div>";
   }
 
   function renderMap() {
     el.map.innerHTML = mapHtml();
+    el.mapLegend.innerHTML = legendHtml(el.colorBy.value);
   }
 
   function mapHtml(pick) {
@@ -334,7 +374,7 @@ const Dashboard = (function () {
       fmt(r.needed),
       "<b>" + (r.problem === "no-count" ? "?" : fmt(r.wanted)) + "</b>",
       fmt(r.placed),
-      r.unplaced ? fmt(r.unplaced) : "",
+      r.unplaced ? '<span class="pending">' + fmt(r.unplaced) + "</span>" : "",
       r.perShelf ? fmt(r.perShelf) : "",
       r.spots.length ? fmt(r.spots.length) : "",
       where + note,
@@ -415,7 +455,8 @@ const Dashboard = (function () {
     if (state.category !== null && state.category !== ALL && !by.has(state.category)) state.category = null;
 
     const button = (key, name, e) => '<button type="button" class="cat-btn' + (state.category === key ? " on" : "") +
-      '" data-cat="' + esc(key) + '"><b>' + esc(name) + '</b><span class="cnt">' + e.skus.toLocaleString() +
+      '" data-cat="' + esc(key) + '"><b>' + (key === ALL ? "" : '<i style="background:' + categoryColor(key) + '"></i>') +
+      esc(name) + '</b><span class="cnt">' + e.skus.toLocaleString() +
       " SKU" + (e.skus === 1 ? "" : "s") + " · " + e.shelves.toLocaleString() + " shel" + (e.shelves === 1 ? "f" : "ves") +
       (e.attention ? ' · <span class="warn">' + e.attention + " need" + (e.attention === 1 ? "s" : "") + " attention</span>" : "") +
       "</span></button>";
@@ -478,7 +519,7 @@ const Dashboard = (function () {
       }).join("");
       html += '<tr data-sku="' + r.index + '"' + (needsAttention(r) ? ' class="short"' : "") + ">" +
         '<td class="sub">' + (i + 1) + "</td>" +
-        '<td title="' + esc(s.tier) + '">' + esc(s.tier) + '</td><td title="' + esc(s.category) + '">' + esc(s.category) +
+        '<td title="' + esc(s.tier) + '">' + esc(s.tier) + '</td><td title="' + esc(s.category) + '"><i class="cat-dot" style="background:' + categoryColor(s.category) + '"></i>' + esc(s.category) +
         '</td><td class="sku-name" title="' + esc(s.sku) + '"><b>' + esc(s.sku) + "</b></td>" +
         inputs +
         '<td class="num">' + worked[0] + '</td><td class="num">' + worked[1] + "</td>" +
@@ -576,6 +617,7 @@ const Dashboard = (function () {
     facts.push(vacant + " shelves vacant");
     el.pickSub.textContent = facts.join(" · ");
     el.pickMap.innerHTML = mapHtml(state.picking);
+    el.pickLegend.innerHTML = legendHtml(el.colorBy.value);
   }
 
   el.pickMap.addEventListener("click", function (e) {

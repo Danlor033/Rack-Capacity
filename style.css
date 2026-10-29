@@ -8,6 +8,7 @@
   --accent-soft: #e7eefc;
   --good: #17a673;
   --warn: #c2410c;
+  --bad: #dc2626;
   --radius: 12px;
   --shadow: 0 1px 2px rgba(16, 26, 40, .06), 0 8px 24px rgba(16, 26, 40, .06);
 }
@@ -22,6 +23,7 @@
   --accent-soft: #1c2a44;
   --good: #35c08d;
   --warn: #fb923c;
+  --bad: #f87171;
   --shadow: 0 1px 2px rgba(0, 0, 0, .35), 0 10px 30px rgba(0, 0, 0, .3);
 }
 
@@ -368,7 +370,8 @@ h2, h3 { letter-spacing: -.01em; }
 /* Every row is drawn on the grid of the longest one, so column 5 sits under
    column 5 all the way down and the shorter rows look shorter. */
 .map { padding: 12px 18px 16px; }
-.map-bar { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 12px; font-size: 12px; }
+.map-bar { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; margin-bottom: 12px; font-size: 12px; }
+.map-bar > .sub { flex: none; }
 .map-bar button { flex: none; }
 .map-rows { overflow-x: auto; display: flex; flex-direction: column; gap: 16px; }
 
@@ -547,6 +550,19 @@ body.detail-open, body.cat-open { overflow: hidden; }
 .cell.pick.taken { opacity: .75; }
 .cell.pick.taken:hover { opacity: 1; border-color: var(--warn); }
 .cell.pick.mine { outline: 2px solid var(--accent); outline-offset: 1px; cursor: default; }
+
+/* Boxes still waiting for a shelf. */
+.pending { color: var(--bad); font-weight: 700; }
+
+/* What the colours on the map mean. */
+.map-legend { display: flex; flex-wrap: wrap; gap: 4px 14px; flex: 1; min-width: 0; font-size: 12px; color: var(--ink-soft); }
+.map-legend span { display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; }
+.map-legend span.off { opacity: .45; }
+.map-legend i { width: 12px; height: 12px; border-radius: 3px; flex: none; }
+.pick-legend-cats { margin: 8px 18px 0; }
+.cat-btn b { display: flex; align-items: center; gap: 7px; }
+.cat-btn b i { width: 11px; height: 11px; border-radius: 3px; flex: none; }
+.cat-dot { display: inline-block; width: 9px; height: 9px; border-radius: 2px; margin-right: 6px; vertical-align: 0; }
 .pick-legend { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--ink-soft); margin-right: 8px; }
 .pick-legend i { display: inline-block; width: 14px; height: 10px; border-radius: 3px; margin-left: 8px; border: 1px solid var(--line); }
 .pick-legend i.vacant { background: color-mix(in srgb, var(--good, #17a673) 25%, transparent); border-color: var(--good, #17a673); }
