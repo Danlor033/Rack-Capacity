@@ -37,8 +37,9 @@ a Tier, Category, SKU code, Sold per day, Quantity, Length, Width, Height
   being shown, and suggests the ones that exist.
 - **Removing** a SKU is the **×** at the end of its row, after a
   confirmation. It cannot be undone.
-- **Editing.** *Sold per day*, *Quantity*, *L*, *W*, *H* and *Qty per box*
-  are edited in place. A change is saved the moment it is committed (Enter,
+- **Editing.** *L*, *W*, *H* and *Qty per box* are edited in place. *Sold
+  per day* and *Quantity* are shown but not editable; they are set when the
+  SKU is added. A change is saved the moment it is committed (Enter,
   Tab, or clicking away) and the racks are laid out again at once. An empty
   box that is keeping a SKU off the racks -- usually *Qty per box* -- is
   outlined. Tier, category and SKU code cannot be edited; remove the SKU and

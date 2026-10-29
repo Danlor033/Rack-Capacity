@@ -332,10 +332,11 @@ const Dashboard = (function () {
   };
   const ATTENTION = ["too-big", "no-size", "no-room", "no-count"];
 
-  // The numbers a SKU's boxes are worked out from, editable in place.
+  // The numbers a SKU's boxes are worked out from. Sizes and qty per box
+  // can be edited in place; sold per day and quantity are only shown.
   const EDITABLE = [
-    { key: "soldPerDay", label: "Sold / day" },
-    { key: "quantity", label: "Quantity" },
+    { key: "soldPerDay", label: "Sold / day", fixed: true },
+    { key: "quantity", label: "Quantity", fixed: true },
     { key: "length", label: "L" },
     { key: "width", label: "W" },
     { key: "height", label: "H" },
@@ -352,15 +353,14 @@ const Dashboard = (function () {
 
   const needsAttention = (r) => ATTENTION.indexOf(r.problem) >= 0;
 
-  // A row's cells that are worked out rather than typed: priority, needed,
-  // boxes, placed, no shelf, per shelf, locations.
+  // A row's cells that are worked out rather than typed: needed, boxes,
+  // placed, no shelf, per shelf, locations.
   function workedOut(r) {
     const where = r.spots.map((p) => '<a href="#" data-loc="' + p.label + '">' + p.label + "</a>" +
       (p.boxes ? ' <span class="sub">\u00d7' + p.boxes + "</span>" : "")).join(", ");
     const note = r.problem && r.problem !== "none-needed"
       ? ' <span class="tag' + (needsAttention(r) ? " bad" : "") + '">' + WHY[r.problem] + "</span>" : "";
     return [
-      String(r.order + 1),
       fmt(r.needed),
       "<b>" + (r.problem === "no-count" ? "?" : fmt(r.wanted)) + "</b>",
       fmt(r.placed),
@@ -374,7 +374,7 @@ const Dashboard = (function () {
   // brought up to date and nothing else is touched. Rebuilding the whole
   // list -- some 1,500 inputs -- stalled every edit and replaced the box the
   // cursor had just moved on to.
-  const WORKED_CELLS = [0, 4 + EDITABLE.length, 5 + EDITABLE.length, 6 + EDITABLE.length,
+  const WORKED_CELLS = [4 + EDITABLE.length, 5 + EDITABLE.length, 6 + EDITABLE.length,
     7 + EDITABLE.length, 8 + EDITABLE.length, 9 + EDITABLE.length];
   function updateSkus() {
     const body = el.skuTable.tBodies[0];
@@ -451,29 +451,31 @@ const Dashboard = (function () {
       });
 
     const days = state.rules.days;
-    let html = "<thead><tr><th title=\"Priority: the order shelves were handed out in\">#</th><th>Tier</th><th>Category</th><th>SKU</th>" +
-      EDITABLE.map((f) => '<th class="num edit-col">' + f.label + "</th>").join("") +
+    let html = "<thead><tr><th>#</th><th>Tier</th><th>Category</th><th>SKU</th>" +
+      EDITABLE.map((f) => '<th class="num' + (f.fixed ? "" : " edit-col") + '">' + f.label + "</th>").join("") +
       '<th class="num" title="Sold per day \u00d7 ' + days + '">Needed (' + days + " d)</th>" +
       '<th class="num" title="Needed \u00f7 Qty per box, rounded up">Boxes</th><th class="num">Placed</th>' +
       '<th class="num">No shelf</th><th class="num">Per shelf</th><th>Locations</th><th></th></tr></thead><tbody>';
-    for (const r of rows) {
+    // # counts down this list from 1, whatever is open.
+    rows.forEach(function (r, i) {
       const s = r.sku;
       const worked = workedOut(r);
       const inputs = EDITABLE.map(function (f) {
         const v = s[f.key];
+        if (f.fixed) return '<td class="num">' + fmt(v) + "</td>";
         return '<td class="num edit-col"><input class="cell-in' + (wanting(r, f.key) ? " want" : "") +
           '" type="number" min="0" step="any" inputmode="decimal" data-sku="' + r.index +
           '" data-field="' + f.key + '" value="' + (v === null || v === undefined ? "" : v) + '"></td>';
       }).join("");
       html += '<tr data-sku="' + r.index + '"' + (needsAttention(r) ? ' class="short"' : "") + ">" +
-        '<td class="sub">' + worked[0] + "</td>" +
+        '<td class="sub">' + (i + 1) + "</td>" +
         "<td>" + esc(s.tier) + "</td><td>" + esc(s.category) + '</td><td class="sku-name"><b>' + esc(s.sku) + "</b></td>" +
         inputs +
-        '<td class="num">' + worked[1] + '</td><td class="num">' + worked[2] + "</td>" +
-        '<td class="num">' + worked[3] + '</td><td class="num">' + worked[4] + "</td>" +
-        '<td class="num">' + worked[5] + "</td><td>" + worked[6] + "</td>" +
+        '<td class="num">' + worked[0] + '</td><td class="num">' + worked[1] + "</td>" +
+        '<td class="num">' + worked[2] + '</td><td class="num">' + worked[3] + "</td>" +
+        '<td class="num">' + worked[4] + "</td><td>" + worked[5] + "</td>" +
         '<td><button type="button" class="ghost small row-del" data-del="' + r.index + '" title="Remove this SKU">&times;</button></td></tr>';
-    }
+    });
     if (!rows.length) html += '<tr><td colspan="17" class="sub">Nothing to show.</td></tr>';
     el.skuTable.innerHTML = html + "</tbody>";
   }
