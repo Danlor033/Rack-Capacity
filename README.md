@@ -160,10 +160,18 @@ always checked for a newer copy.
 
 ### Online: Cloudflare Pages
 
-The same files are also published on Cloudflare Pages (see `deploy.cmd` for the project name). Both
+The same files are also published at <https://rack-planner-acce.pages.dev>
+(Cloudflare Pages project `rack-planner-acce`, account Ops.shigetsu).
+`rack-planner.pages.dev` itself belongs to somebody else.
+
+The project is connected to this GitHub repository, so **every push to
+`main` goes online by itself** within a minute or so. Cloudflare builds it
+with `mkdir -p dist && cp index.html style.css _headers *.js dist/` and
+serves `dist`, so `serve.py`, the shortcut script and this README stay off
+the site. Both
 copies use the same Supabase project, so they show the same racks and sheet.
 
-To publish a change, run `deploy.cmd` from this folder. It copies only what
+`deploy.cmd` is the manual way, for a change that is not pushed. It copies only what
 the browser needs (`index.html`, `style.css`, the `.js` files and
 `_headers`) into `dist`, then uploads that with Wrangler. The first time on a
 PC, sign in once with `npx.cmd wrangler login`. Use `npx.cmd`, not `npx`:
