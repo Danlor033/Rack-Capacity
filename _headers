@@ -1,0 +1,6 @@
+# Cloudflare Pages response headers. Browsers check back for new copies of
+# the page and its files, the same as serve.py does on the office server.
+/*
+  Cache-Control: no-cache
+  X-Content-Type-Options: nosniff
+  Referrer-Policy: strict-origin-when-cross-origin

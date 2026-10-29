@@ -21,7 +21,7 @@ const Dashboard = (function () {
     map: $("rackMap"),
     detail: $("detail"), detailClose: $("detailClose"),
     rowGap: $("rowGap"), rowGapText: $("rowGapText"),
-    dLabel: $("dLabel"), dWhere: $("dWhere"), dFill: $("dFill"), dCanvas: $("dCanvas"), dTable: $("dTable"),
+    dLabel: $("dLabel"), dWhere: $("dWhere"), dCanvas: $("dCanvas"), dTable: $("dTable"),
     skuFilter: $("skuFilter"), skuTable: $("skuTable"),
     tierList: $("tierList"), gap: $("dataGap"), gapText: $("dataGapText"), gapShow: $("dataGapShow"),
     ruleDays: $("ruleDays"), skuStatus: $("skuStatus"),
@@ -75,10 +75,6 @@ const Dashboard = (function () {
     const s = state.data.skus[skuIndex];
     const by = el.colorBy.value;
     return state.colors[by].get(by === "category" ? s.category : by === "tier" ? s.tier : s.sku) || "#94a3b8";
-  }
-
-  function layerName(layer) {
-    return layer === 1 ? "Layer 1 (floor)" : layer === Layout.LAYERS ? "Layer " + layer + " (top)" : "Layer " + layer;
   }
 
   // --- loading -------------------------------------------------------------
@@ -268,8 +264,10 @@ const Dashboard = (function () {
     const [, row, col, layer] = label.split("-").map(Number);
     const rec = state.alloc.locations.get(label) || null;
     el.dLabel.textContent = label;
-    el.dWhere.textContent = "Row " + row + " · Column " + col + " · " + layerName(layer);
-    el.dFill.textContent = rec ? pct(rec.fill) : "0%";
+    const stat = (name, value) => "<div><dt>" + name + "</dt><dd>" + value + "</dd></div>";
+    el.dWhere.innerHTML = stat("Row", row) + stat("Column", col) +
+      stat("Layer", layer + ' <span class="sub">' + (layer === 1 ? "floor" : layer === Layout.LAYERS ? "top" : "middle") + "</span>") +
+      stat("Full", rec ? pct(rec.fill) : "0%");
 
     // The map's colours, unless two SKUs here would share one.
     let colors = SECTION_COLORS;
@@ -287,25 +285,34 @@ const Dashboard = (function () {
     }
 
     if (!rec) {
-      el.dTable.innerHTML = '<tbody><tr><td class="sub">Empty shelf — nothing in the sheet needs it.</td></tr></tbody>';
+      el.dTable.innerHTML = '<p class="sub detail-none">Empty shelf — nothing in the sheet needs it.</p>';
       return;
     }
-    let html = "<thead><tr><th></th><th>SKU</th><th class=\"num\">Sold / day</th>" +
-      "<th class=\"num\">Boxes</th><th class=\"num\">Qty</th></tr></thead><tbody>";
+
+    // One card per SKU on the shelf, every number named.
+    const dash = '<span class="sub">—</span>';
+    const boxes = rec.sections.reduce((n, sec) => n + sec.boxes, 0);
+    let html = '<p class="detail-sum"><b>' + rec.sections.length + "</b> SKU" + (rec.sections.length === 1 ? "" : "s") +
+      " · <b>" + fmt(boxes) + "</b> box" + (boxes === 1 ? "" : "es") + " on this shelf</p>";
     rec.sections.forEach(function (sec, i) {
       const s = state.data.skus[sec.sku];
-      const qty = s.qtyPerBox > 0 ? fmt(sec.boxes * s.qtyPerBox) : "";
-      const size = [s.length, s.width, s.height].join(" × ") + " cm";
-      html += '<tr><td><span class="chip" style="background:' + colorFor(i) + '"></span></td>' +
-        '<td class="sku-cell"><b>' + esc(s.sku) + '</b><span class="sub">' +
-        esc([s.category, s.tier, size].filter(Boolean).join(" · ")) + "</span></td>" +
-        '<td class="num">' + fmt(s.soldPerDay) + '</td><td class="num">' + fmt(sec.boxes) + "</td>" +
-        '<td class="num">' + qty + "</td></tr>";
+      const fact = (name, value, wide) => '<div' + (wide ? ' class="wide"' : "") + "><dt>" + name + "</dt><dd>" +
+        (value === "" || value === null || value === undefined ? dash : value) + "</dd></div>";
+      html += '<article class="dsku">' +
+        '<header><span class="chip" style="background:' + colorFor(i) + '"></span><b>' + esc(s.sku) + "</b></header>" +
+        "<dl>" +
+        fact("Category", esc(s.category)) +
+        fact("Tier", esc(s.tier)) +
+        fact("Sold per day", fmt(s.soldPerDay)) +
+        fact("Qty per box", s.qtyPerBox > 0 ? fmt(s.qtyPerBox) : "") +
+        fact("Boxes on shelf", "<b>" + fmt(sec.boxes) + "</b>") +
+        fact("Qty on shelf", s.qtyPerBox > 0 ? fmt(sec.boxes * s.qtyPerBox) : "") +
+        fact("Box size (L × W × H)", [s.length, s.width, s.height].join(" × ") + " cm", true) +
+        "</dl></article>";
     });
     const free = Layout.SHELF.l - rec.sections.reduce((n, s) => n + s.len, 0);
-    html += "</tbody>";
     if (free > 0.5 && rec.sections.length && rec.sections[0].len < Layout.SHELF.l) {
-      html += '<tfoot><tr><td></td><td colspan="4" class="sub">' + Math.round(free) + " cm of shelf width still free</td></tr></tfoot>";
+      html += '<p class="sub detail-free">' + Math.round(free) + " cm of shelf width still free</p>";
     }
     el.dTable.innerHTML = html;
   }

@@ -137,8 +137,8 @@ reach it too:
 - <http://OLT-0285:8794> -- the host name, which does not change
 - <http://10.2.11.31:8794> -- the address today, which DHCP may change
 
-Nothing is published to the internet; this only works for people already on
-the same network. Windows Firewall already allows this `pythonw.exe` inbound
+That copy only works for people already on the same network; the online
+copy below works from anywhere. Windows Firewall already allows this `pythonw.exe` inbound
 on the Public profile. If the network is ever reclassified Private or Domain,
 that allowance will need repeating for the new profile.
 
@@ -157,6 +157,23 @@ import once failed with *Cannot read properties of undefined (reading
 
 `serve.py` also sends `Cache-Control: no-cache`, so the page itself is
 always checked for a newer copy.
+
+### Online: Cloudflare Pages
+
+The same files are also published at <https://rack-planner.pages.dev>. Both
+copies use the same Supabase project, so they show the same racks and sheet.
+
+To publish a change, run `deploy.cmd` from this folder. It copies only what
+the browser needs (`index.html`, `style.css`, the `.js` files and
+`_headers`) into `dist`, then uploads that with Wrangler. The first time on a
+PC, sign in once with `npx.cmd wrangler login`. Use `npx.cmd`, not `npx`:
+PowerShell refuses to run `npx.ps1` on this PC.
+
+`_headers` gives the online copy the same `Cache-Control: no-cache` as
+`serve.py`, so the version rule above still applies.
+
+Anyone who has the address can open the online copy, and the page can change
+the data as well as read it -- see the note in the next section.
 
 ## Sharing through Supabase
 

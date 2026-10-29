@@ -4,7 +4,7 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>Rack Planner</title>
-<link rel="stylesheet" href="style.css?v=2026-10-29e" />
+<link rel="stylesheet" href="style.css?v=2026-10-29f" />
 </head>
 <body>
 
@@ -123,11 +123,11 @@
          the full width. Esc or the close button goes back to the map. -->
     <div class="detail" id="detail" role="dialog" aria-modal="true" aria-labelledby="dLabel" hidden>
       <div class="detail-head">
-        <div>
+        <div class="detail-title">
+          <span class="detail-cap">Location</span>
           <h3 id="dLabel">&nbsp;</h3>
-          <p class="sub" id="dWhere">&nbsp;</p>
         </div>
-        <div class="detail-fill"><strong id="dFill">&nbsp;</strong><span>full</span></div>
+        <dl class="detail-stats" id="dWhere"></dl>
         <button class="ghost small detail-close" id="detailClose" type="button" title="Close (Esc)" aria-label="Close">&times;</button>
       </div>
       <div class="detail-body">
@@ -135,7 +135,7 @@
           <div class="canvas-wrap detail-3d"><canvas id="dCanvas"></canvas></div>
           <p class="hint">Drag to turn &middot; scroll to zoom</p>
         </div>
-        <div class="detail-list"><table class="tbl" id="dTable"></table></div>
+        <div class="detail-list" id="dTable"></div>
       </div>
     </div>
 
@@ -293,17 +293,17 @@
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-<script src="config.js?v=2026-10-29e"></script>
-<script src="packer.js?v=2026-10-29e"></script>
-<script src="layout.js?v=2026-10-29e"></script>
-<script src="allocate.js?v=2026-10-29e"></script>
-<script src="db.js?v=2026-10-29e"></script>
-<script src="excel.js?v=2026-10-29e"></script>
-<script src="view3d.js?v=2026-10-29e"></script>
-<script src="view2d.js?v=2026-10-29e"></script>
-<script src="app.js?v=2026-10-29e"></script>
-<script src="dashboard.js?v=2026-10-29e"></script>
-<script src="importer.js?v=2026-10-29e"></script>
-<script src="pages.js?v=2026-10-29e"></script>
+<script src="config.js?v=2026-10-29f"></script>
+<script src="packer.js?v=2026-10-29f"></script>
+<script src="layout.js?v=2026-10-29f"></script>
+<script src="allocate.js?v=2026-10-29f"></script>
+<script src="db.js?v=2026-10-29f"></script>
+<script src="excel.js?v=2026-10-29f"></script>
+<script src="view3d.js?v=2026-10-29f"></script>
+<script src="view2d.js?v=2026-10-29f"></script>
+<script src="app.js?v=2026-10-29f"></script>
+<script src="dashboard.js?v=2026-10-29f"></script>
+<script src="importer.js?v=2026-10-29f"></script>
+<script src="pages.js?v=2026-10-29f"></script>
 </body>
 </html>
