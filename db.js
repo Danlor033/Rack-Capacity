@@ -250,9 +250,61 @@ const DB = (function () {
     },
   };
 
+  // --- which SKU is on which shelf --------------------------------------------
+
+  const SHELF_TABLE = "rack_shelves";
+  const LOCAL_SHELVES = "rackPlanner.shelves";
+
+  function localShelves() {
+    try { return JSON.parse(localStorage.getItem(LOCAL_SHELVES)) || []; } catch (e) { return []; }
+  }
+
+  const shelves = {
+    // [{ label, sku, at }], oldest first: a SKU's boxes fill its shelves in
+    // the order they were given.
+    async list(importId) {
+      if (!configured()) return localShelves().filter((a) => a.importId === importId);
+      const rows = await rest(SHELF_TABLE, {
+        query: "?select=label,sku_id,assigned_at&import_id=eq." + importId + "&order=assigned_at&limit=" + PAGE,
+      });
+      return rows.map((r) => ({ label: r.label, sku: r.sku_id, at: r.assigned_at }));
+    },
+
+    // Give a shelf to a SKU. Whatever was on it before is replaced.
+    async assign(importId, label, skuId) {
+      const at = new Date().toISOString();
+      if (!configured()) {
+        const all = localShelves().filter((a) => !(a.importId === importId && a.label === label));
+        all.push({ importId: importId, label: label, sku: skuId, at: at });
+        localStorage.setItem(LOCAL_SHELVES, JSON.stringify(all));
+        return { label: label, sku: skuId, at: at };
+      }
+      await rest(SHELF_TABLE, {
+        method: "POST", query: "?on_conflict=import_id,label",
+        body: [{ import_id: importId, label: label, sku_id: skuId, assigned_at: at }],
+        prefer: "resolution=merge-duplicates,return=minimal",
+      });
+      return { label: label, sku: skuId, at: at };
+    },
+
+    async free(importId, label) {
+      if (!configured()) {
+        const all = localShelves().filter((a) => !(a.importId === importId && a.label === label));
+        localStorage.setItem(LOCAL_SHELVES, JSON.stringify(all));
+        return;
+      }
+      await rest(SHELF_TABLE, {
+        method: "DELETE",
+        query: "?import_id=eq." + importId + "&label=eq." + encodeURIComponent(label),
+        prefer: "return=minimal",
+      });
+    },
+  };
+
   return {
     configured: configured,
     imports: imports,
+    shelves: shelves,
     racks: makeStore(RACK_TABLE, "rackPlanner.racks", SEED_RACKS, function (a, b) {
       if (a.is_default !== b.is_default) return a.is_default ? -1 : 1;
       return byName(a, b);

@@ -503,7 +503,9 @@ body.detail-open, body.cat-open { overflow: hidden; }
 .tbl input.cell-in.want { border-color: var(--warn); border-style: dashed; background: color-mix(in srgb, var(--warn) 8%, transparent); }
 /* The input's text lines up with the plain numbers and the headings: the
    cell gives up its own padding and the input carries the 8px instead. */
-.tbl td.edit-col { padding: 3px 1px; }
+/* The input's text lines up with the plain values and the headings: the
+   cell gives up its left padding and the input carries the 8px instead. */
+.tbl td.edit-col { padding: 3px 4px 3px 1px; }
 .tbl td.edit-col input.cell-in { width: 100%; padding: 3px 6px; }
 .tbl td.sku-name { white-space: nowrap; }
 .sku-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin-bottom: 12px; }
@@ -519,8 +521,19 @@ body.detail-open, body.cat-open { overflow: hidden; }
 #skuTable { table-layout: fixed; min-width: 1500px; }
 #skuTable col:last-child { min-width: 180px; }
 #skuTable td { vertical-align: middle; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-#skuTable th.num { text-align: right; }
+/* Everything in the list reads from the left, headings and numbers alike. */
+#skuTable th, #skuTable td, #skuTable .num, #skuTable input.cell-in { text-align: left; }
 #skuTable td.locs { white-space: normal; }
+.loc-chip {
+  display: inline-flex; align-items: center; gap: 4px; margin: 0 6px 4px 0; padding: 1px 2px 1px 7px;
+  border: 1px solid var(--line); border-radius: 6px; background: var(--bg);
+}
+.loc-free {
+  border: 0; background: transparent; color: var(--ink-soft); cursor: pointer;
+  font-size: 13px; line-height: 1; padding: 1px 4px; border-radius: 4px;
+}
+.loc-free:hover { color: var(--warn); background: color-mix(in srgb, var(--warn) 12%, transparent); }
+#skuTable select.loc-pick { width: auto; max-width: 100%; padding: 2px 6px; font-size: 12px; }
 .cat-stats { margin: 6px 0 4px; gap: 22px; }
 .cat-stats dd { font-size: 16px; }
 

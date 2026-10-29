@@ -211,17 +211,17 @@ const Excel = (function () {
     const WHY = {
       "too-big": "Box larger than a shelf",
       "no-size": "Box size missing",
-      "no-room": "Racks full",
+      "no-location": "No location picked",
+      "short": "Needs more shelves",
       "none-needed": "No boxes needed",
       "no-count": "No Qty per box",
-      "skipped": "Tier set to get no shelves",
     };
     // The SKU's numbers as they stand after any edits on the dashboard, so the
     // sheet can go straight back into the master list.
     const days = allocation.rules.days;
     const bySku = [["Tier", "Category", "SKU", "Sold per day", "Quantity", "Length", "Width", "Height", "Qty per box",
       "Needed qty (" + days + " days)", "Boxes needed", "Boxes placed", "Not placed", "Boxes per full shelf", "Locations", "Note"]];
-    // In priority order, the same order the shelves were handed out in.
+    // In list order.
     const ordered = allocation.results.slice().sort((a, b) => a.order - b.order);
     for (const r of ordered) {
       const s = r.sku;

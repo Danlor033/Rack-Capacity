@@ -38,6 +38,7 @@ a Tier, Category, SKU code, Sold per day, Quantity, Length, Width, Height
 - **Removing** a SKU is not possible from the page.
 - **Shelves.** Each category button, and the top of its window, says how
   many shelves the category takes; the *Shelves* column says it per SKU.
+  Shelves are picked in the *Locations* column (see below).
 - **Editing.** *L*, *W*, *H* and *Qty per box* are edited in place. *Sold
   per day* and *Quantity* are shown but not editable; they are set when the
   SKU is added. A change is saved the moment it is committed (Enter,
@@ -58,39 +59,32 @@ Other PCs see a change the next time they load the page.
 The list started as an imported Excel sheet. The Import page has since been
 taken out; `excel.js` still has the reader in case it is ever wanted back.
 
-### How shelves are chosen
+### Choosing shelves
 
-SKUs are taken in priority order and each takes the best shelves still free.
-A SKU first fills as many whole shelves as its boxes can. Its leftover boxes
-then get a slice of a shelf -- front to back, full height, only as wide as
-they need -- and slices from different SKUs sit side by side. Nothing is
-stacked on, or hidden behind, another SKU: every SKU on a shelf faces the
-aisle.
+Nothing is placed automatically. Each SKU's shelves are picked by hand, in
+the *Locations* column of the SKU list:
 
-These rules are saved with the SKU list, so every PC sees the same racks.
-Only **Days of stock in 4KB** is on the page (beside **+ Add SKU**). The
-*How shelves are chosen* box was taken off the page on 2026-10-29, and the
-rules saved then still apply: sold per day by category (one category per
-row), highest column first, one SKU per shelf, any way up, tiers in the
-order Tier 1, Tier 2, Tier 3, GWP, New SKU, Discontinue. Changing one now
-means editing `rules` on the newest row of `rack_imports` in Supabase.
+- **+ Select location** lists the vacant shelves first, then the occupied
+  ones with the SKU on each. Picking a vacant shelf gives it to the SKU at
+  once.
+- Picking an **occupied** shelf asks first. Confirmed, the SKU that was on
+  it is taken off and the new one goes on.
+- One SKU per shelf. A SKU can have as many shelves as it needs; its boxes
+  fill them in the order they were picked, each shelf to what it can hold.
+  Boxes left over show under *No shelf*, and the SKU is marked *needs more
+  shelves* (or *pick a location* if it has none).
+- The **×** on a location frees that shelf, after a confirmation.
 
-The choices each rule has:
+Choices are saved for everyone, in the `rack_shelves` table: one row per
+shelf, saying which SKU is on it.
 
-| Rule | Choices |
-| --- | --- |
-| Days of stock in 4KB | Any whole number of days; Needed qty is Sold per day × this |
-| Who goes first | Tier then sold per day · Category then tier · Sold per day only · Sold per day by category -- the category with the most SKUs first (on a tie, the better-selling one), its best-selling SKU first. Each category also gets rows of its own: the biggest starts on Row 1, each next one on a fresh row, and a category runs into the next free row only if it needs more. Once all 8 rows are taken, the categories left over share the row of the category with the fewest SKUs (then the next fewest, as that row fills), and the page says which (tiers have their own order, and any tier can be left off) |
-| Best shelves | Layer 1 everywhere, then 2, then 3 · Row by row · Label order · Highest column first, lowest layer first (column 14 down to 1; where rows share a column number, Row 1 first) |
-| Sharing a shelf | Same category only · Any SKU · Never (one SKU per shelf) |
-| Turning boxes | Any way up · Upright only |
+**Days of stock in 4KB** (beside **+ Add SKU**) sets how many boxes each SKU
+needs: *Sold per day × days ÷ Qty per box*, rounded up. Boxes may be turned
+any way to fit a shelf.
 
-Where each SKU lands is worked out in the browser from the sheet and these
-rules, never stored, so a rule change shows at once.
-
-**Export put-away list** writes an Excel file with two sheets: shelf by
-shelf in walking order, and SKU by SKU with every shelf it went to and why
-anything could not be placed.
+Until 2026-10-29 the app chose shelves itself, from rules (who goes first,
+best shelves, sharing). That was taken out; it is in the git history before
+this change if it is ever wanted back.
 
 ## The calculator
 
@@ -214,7 +208,7 @@ change if the app ever gains a login.
 | --- | --- |
 | `packer.js` | How many boxes fit in a space, and where. No DOM -- testable on its own. |
 | `layout.js` | The 4KB rows, columns, layers and labels, and the fill orders. |
-| `allocate.js` | Which SKU goes on which shelf. No DOM -- testable on its own. |
+| `allocate.js` | How many of a SKU's boxes go on each shelf it was given. No DOM -- testable on its own. |
 | `excel.js` | The put-away export (SheetJS). Also an unused sheet reader, from when there was an Import page. |
 | `dashboard.js` | The racks page: map, shelf detail, SKU list by category, adding and removing SKUs, rules. |
 | `pages.js` | Switching between Racks and Calculator. |

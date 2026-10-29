@@ -18,7 +18,6 @@ const Dashboard = (function () {
     kSkus: $("kSkus"), kFill: $("kFill"),
     map: $("rackMap"), mapReset: $("mapReset"),
     detail: $("detail"), detailClose: $("detailClose"),
-    rowGap: $("rowGap"), rowGapText: $("rowGapText"),
     dLabel: $("dLabel"), dWhere: $("dWhere"), dCanvas: $("dCanvas"), dTable: $("dTable"),
     skuFilter: $("skuFilter"), skuTable: $("skuTable"),
     gap: $("dataGap"), gapText: $("dataGapText"), gapShow: $("dataGapShow"),
@@ -88,6 +87,7 @@ const Dashboard = (function () {
   // hand from here.
   function load(data) {
     state.data = data && data.skus ? data : { import: null, skus: [] };
+    if (!state.data.shelves) state.data.shelves = [];
     el.empty.hidden = true;
     el.dash.hidden = false;
     state.rules = Object.assign({}, Allocate.DEFAULT_RULES, (state.data.import && state.data.import.rules) || {});
@@ -97,8 +97,12 @@ const Dashboard = (function () {
     recompute();
   }
 
+  function layout() {
+    return Allocate.place(state.data.skus, state.data.shelves, state.rules);
+  }
+
   function recompute() {
-    state.alloc = Allocate.run(state.data.skus, state.rules);
+    state.alloc = layout();
     render();
   }
 
@@ -138,24 +142,6 @@ const Dashboard = (function () {
     } else {
       el.gap.hidden = true;
     }
-
-    // One category per row: more categories than rows means some share.
-    const guests = state.alloc.categories.filter((c) => c.guest);
-    if (guests.length) {
-      const name = (c) => esc(c.name || "(no category)");
-      const list = (xs) => (xs.length > 1 ? xs.slice(0, -1).join(", ") + " and " + xs[xs.length - 1] : xs[0]);
-      const shared = [...new Set(guests.flatMap((g) => g.rows))].sort((a, b) => a - b);
-      const hosts = shared.map(function (row) {
-        const host = state.alloc.categories.find((c) => !c.guest && c.rows.indexOf(row) >= 0);
-        return "Row " + row + (host ? " with " + name(host) + " (" + host.skus + " SKUs)" : "");
-      });
-      el.rowGapText.innerHTML = "There are more categories than rows, so <b>" + list(guests.map(name)) + "</b> " +
-        (guests.length === 1 ? "shares " : "share ") + list(hosts) +
-        " &mdash; " + (hosts.length === 1 ? "the category" : "the categories") + " with the fewest SKUs.";
-      el.rowGap.hidden = false;
-    } else {
-      el.rowGap.hidden = true;
-    }
   }
 
   function matches(rec, label) {
@@ -184,7 +170,7 @@ const Dashboard = (function () {
       for (const sec of rec.sections) {
         const s = state.data.skus[sec.sku];
         const slab = sec.len * shelf.w * shelf.h;
-        const level = Math.min(1, (sec.boxes * s.length * s.width * s.height) / slab);
+        const level = sec.boxes && Allocate.hasSize(s) ? Math.min(1, (sec.boxes * s.length * s.width * s.height) / slab) : 0;
         inner += '<i style="left:' + (sec.x / shelf.l * 100).toFixed(2) + "%;width:" +
           (sec.len / shelf.l * 100).toFixed(2) + "%;height:" + Math.max(8, level * 100).toFixed(1) +
           "%;background:" + colorOf(sec.sku) + '"></i>';
@@ -198,15 +184,15 @@ const Dashboard = (function () {
   function renderMap() {
     let html = "";
     const widest = Math.max.apply(null, Layout.ROWS);
-    // Each row's categories: its own first, then any sharing it.
+    // The categories on each row, most shelves first.
     const rowNames = new Map();
-    for (const c of state.alloc.categories.filter((c) => !c.guest).concat(state.alloc.categories.filter((c) => c.guest))) {
-      for (const row of c.rows) {
-        const names = rowNames.get(row) || [];
-        names.push(c.name || "(no category)");
-        rowNames.set(row, names);
-      }
+    const perRow = new Map();
+    for (const rec of state.alloc.locations.values()) {
+      const c = catName(state.data.skus[rec.sections[0].sku].category);
+      if (!perRow.has(rec.row)) perRow.set(rec.row, new Map());
+      perRow.get(rec.row).set(c, (perRow.get(rec.row).get(c) || 0) + 1);
     }
+    for (const [row, m] of perRow) rowNames.set(row, [...m].sort((x, y) => y[1] - x[1]).map((e) => e[0]));
     Layout.ROWS.forEach(function (cols, i) {
       const row = i + 1;
       let used = 0;
@@ -293,12 +279,12 @@ const Dashboard = (function () {
   const WHY = {
     "too-big": "box is bigger than a shelf",
     "no-size": "box size missing",
-    "no-room": "racks are full",
+    "no-location": "pick a location",
+    "short": "needs more shelves",
     "none-needed": "no boxes needed",
     "no-count": "no qty per box",
-    "skipped": "tier gets no shelves",
   };
-  const ATTENTION = ["too-big", "no-size", "no-room", "no-count"];
+  const ATTENTION = ["too-big", "no-size", "no-location", "short", "no-count"];
 
   // The numbers a SKU's boxes are worked out from. Sizes and qty per box
   // can be edited in place; sold per day and quantity are only shown.
@@ -324,8 +310,10 @@ const Dashboard = (function () {
   // A row's cells that are worked out rather than typed: needed, boxes,
   // placed, no shelf, per shelf, shelves taken, locations.
   function workedOut(r) {
-    const where = r.spots.map((p) => '<a href="#" data-loc="' + p.label + '">' + p.label + "</a>" +
-      (p.boxes ? ' <span class="sub">\u00d7' + p.boxes + "</span>" : "")).join(", ");
+    const where = r.spots.map((p) => '<span class="loc-chip"><a href="#" data-loc="' + p.label + '">' + p.label + "</a>" +
+      (p.boxes ? ' <span class="sub">\u00d7' + p.boxes + "</span>" : "") +
+      '<button type="button" class="loc-free" data-free="' + p.label + '" title="Free this shelf">\u00d7</button></span>').join("") +
+      '<select class="loc-pick" data-pick="' + r.index + '" title="Give this SKU a shelf"><option value="">+ Select location</option></select>';
     const note = r.problem && r.problem !== "none-needed"
       ? ' <span class="tag' + (needsAttention(r) ? " bad" : "") + '">' + WHY[r.problem] + "</span>" : "";
     return [
@@ -450,7 +438,6 @@ const Dashboard = (function () {
         if (filter === "missing") return ATTENTION.indexOf(r.problem) >= 0;
         if (filter === "nocount") return r.problem === "no-count";
         if (filter === "placed") return r.placed > 0 && r.unplaced === 0;
-        if (filter === "skipped") return r.problem === "skipped";
         return true;
       });
 
@@ -532,7 +519,9 @@ const Dashboard = (function () {
       select(link.dataset.loc, true);
       return;
     }
-    if (e.target.closest("input")) return;
+    const free = e.target.closest("button[data-free]");
+    if (free) { freeShelf(free.dataset.free); return; }
+    if (e.target.closest("input, select, button")) return;
     const tr = e.target.closest("tr[data-sku]");
     if (!tr) return;
     const r = state.alloc.results[Number(tr.dataset.sku)];
@@ -541,6 +530,91 @@ const Dashboard = (function () {
     renderMap();
     if (r.spots.length) select(r.spots[0].label, true);
   });
+
+  // --- choosing shelves -------------------------------------------------------
+
+  // The picker is filled only when it is opened: 231 options in every row
+  // would make the list slow again.
+  function fillPicker(sel) {
+    if (sel.dataset.filled) return;
+    const r = state.alloc.results[Number(sel.dataset.pick)];
+    const mine = new Set(r.spots.map((p) => p.label));
+    const vacant = [], taken = [];
+    for (const spot of Layout.all()) {
+      if (mine.has(spot.label)) continue;
+      const rec = state.alloc.locations.get(spot.label);
+      if (!rec) vacant.push('<option value="' + spot.label + '">' + spot.label + "</option>");
+      else taken.push('<option value="' + spot.label + '">' + spot.label + " \u2014 " +
+        esc(state.data.skus[rec.sections[0].sku].sku) + "</option>");
+    }
+    sel.innerHTML = '<option value="">+ Select location</option>' +
+      '<optgroup label="Vacant (' + vacant.length + ')">' + vacant.join("") + "</optgroup>" +
+      (taken.length ? '<optgroup label="Occupied \u2014 replaces the SKU there">' + taken.join("") + "</optgroup>" : "");
+    sel.dataset.filled = "1";
+  }
+  el.skuTable.addEventListener("mousedown", function (e) {
+    const sel = e.target.closest("select[data-pick]");
+    if (sel) fillPicker(sel);
+  });
+  el.skuTable.addEventListener("focusin", function (e) {
+    const sel = e.target.closest("select[data-pick]");
+    if (sel) fillPicker(sel);
+  });
+
+  async function giveShelf(sel) {
+    const label = sel.value;
+    if (!label) return;
+    const r = state.alloc.results[Number(sel.dataset.pick)];
+    const rec = state.alloc.locations.get(label);
+    if (rec) {
+      const old = state.data.skus[rec.sections[0].sku];
+      const ok = confirm(label + " already holds " + old.sku + ".\n\nPut " + r.sku.sku + " there instead? " +
+        old.sku + " will be removed from " + label + ".");
+      if (!ok) { sel.value = ""; return; }
+    }
+    if (!r.sku.id) {
+      failed = "This SKU was loaded before shelves could be chosen \u2014 reload the page, then try again.";
+      status();
+      return;
+    }
+    failed = null;
+    saving++;
+    status();
+    try {
+      const head = await ensureImport();
+      const given = await DB.shelves.assign(head.id, label, r.sku.id);
+      state.data.shelves = state.data.shelves.filter((a) => a.label !== label).concat([given]);
+      refresh();
+    } catch (err) {
+      console.error(err);
+      failed = "Could not give " + label + " to " + r.sku.sku + ": " + err.message;
+      sel.value = "";
+    } finally {
+      saving--;
+      status();
+    }
+  }
+
+  async function freeShelf(label) {
+    const rec = state.alloc.locations.get(label);
+    const name = rec ? state.data.skus[rec.sections[0].sku].sku : "";
+    if (!confirm("Free " + label + "? " + name + " will be taken off it.")) return;
+    failed = null;
+    saving++;
+    status();
+    try {
+      await DB.shelves.free(state.data.import.id, label);
+      state.data.shelves = state.data.shelves.filter((a) => a.label !== label);
+      if (state.selected === label) closeDetail();
+      refresh();
+    } catch (err) {
+      console.error(err);
+      failed = "Could not free " + label + ": " + err.message;
+    } finally {
+      saving--;
+      status();
+    }
+  }
 
   // An edit is saved the moment it is committed (Enter, Tab, or clicking
   // away), and the racks are laid out again with the new numbers.
@@ -557,6 +631,8 @@ const Dashboard = (function () {
   }
 
   el.skuTable.addEventListener("change", function (e) {
+    const pick = e.target.closest("select[data-pick]");
+    if (pick) { giveShelf(pick); return; }
     const input = e.target.closest("input[data-field]");
     if (!input) return;
     const r = state.alloc.results[Number(input.dataset.sku)];
@@ -598,7 +674,7 @@ const Dashboard = (function () {
   function refresh() {
     clearTimeout(refreshTimer);
     refreshTimer = setTimeout(function () {
-      state.alloc = Allocate.run(state.data.skus, state.rules);
+      state.alloc = layout();
       renderKpis();
       renderMap();
       renderDetail();
@@ -770,7 +846,9 @@ const Dashboard = (function () {
 
   async function start() {
     try {
-      load(await DB.imports.latest());
+      const data = await DB.imports.latest();
+      if (data && data.import) data.shelves = await DB.shelves.list(data.import.id);
+      load(data);
     } catch (e) {
       console.error(e);
       el.empty.hidden = false;
