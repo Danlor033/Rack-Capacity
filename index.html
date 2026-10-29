@@ -4,7 +4,7 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>Rack Planner</title>
-<link rel="stylesheet" href="style.css?v=2026-10-29l" />
+<link rel="stylesheet" href="style.css?v=2026-10-29m" />
 </head>
 <body>
 
@@ -147,8 +147,14 @@
       <p id="rowGapText"></p>
     </div>
 
-    <div class="map card" id="rackMap"></div>
-    <p class="sub map-hint">Click a shelf to see how its boxes go in.</p>
+    <div class="map card">
+      <div class="map-bar">
+        <span class="sub">Click a shelf to see how its boxes go in.</span>
+        <button class="ghost small" id="mapReset" type="button"
+          title="Clear the search and the picked shelf, and colour by category again">&#8634; Reset map</button>
+      </div>
+      <div class="map-rows" id="rackMap"></div>
+    </div>
 
     <!-- What is on one shelf: full screen over the page, so the map keeps
          the full width. Esc or the close button goes back to the map. -->
@@ -302,16 +308,16 @@
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-<script src="config.js?v=2026-10-29l"></script>
-<script src="packer.js?v=2026-10-29l"></script>
-<script src="layout.js?v=2026-10-29l"></script>
-<script src="allocate.js?v=2026-10-29l"></script>
-<script src="db.js?v=2026-10-29l"></script>
-<script src="excel.js?v=2026-10-29l"></script>
-<script src="view3d.js?v=2026-10-29l"></script>
-<script src="view2d.js?v=2026-10-29l"></script>
-<script src="app.js?v=2026-10-29l"></script>
-<script src="dashboard.js?v=2026-10-29l"></script>
-<script src="pages.js?v=2026-10-29l"></script>
+<script src="config.js?v=2026-10-29m"></script>
+<script src="packer.js?v=2026-10-29m"></script>
+<script src="layout.js?v=2026-10-29m"></script>
+<script src="allocate.js?v=2026-10-29m"></script>
+<script src="db.js?v=2026-10-29m"></script>
+<script src="excel.js?v=2026-10-29m"></script>
+<script src="view3d.js?v=2026-10-29m"></script>
+<script src="view2d.js?v=2026-10-29m"></script>
+<script src="app.js?v=2026-10-29m"></script>
+<script src="dashboard.js?v=2026-10-29m"></script>
+<script src="pages.js?v=2026-10-29m"></script>
 </body>
 </html>

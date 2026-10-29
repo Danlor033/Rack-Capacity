@@ -18,7 +18,7 @@ const Dashboard = (function () {
     kSkus: $("kSkus"), kFill: $("kFill"),
     rulesSummary: $("rulesSummary"),
     ruleOrder: $("ruleOrder"), ruleFill: $("ruleFill"), ruleMix: $("ruleMix"), ruleTurn: $("ruleTurn"),
-    map: $("rackMap"),
+    map: $("rackMap"), mapReset: $("mapReset"),
     detail: $("detail"), detailClose: $("detailClose"),
     rowGap: $("rowGap"), rowGapText: $("rowGapText"),
     dLabel: $("dLabel"), dWhere: $("dWhere"), dCanvas: $("dCanvas"), dTable: $("dTable"),
@@ -617,6 +617,18 @@ const Dashboard = (function () {
   });
 
   el.colorBy.addEventListener("change", function () { renderMap(); renderDetail(); });
+
+  // Back to how the map looks when the page opens: no search, no shelf
+  // picked, coloured by category, scrolled to the start. Rules and SKUs are
+  // left alone.
+  el.mapReset.addEventListener("click", function () {
+    el.search.value = "";
+    state.search = "";
+    el.colorBy.value = "category";
+    closeDetail();
+    renderMap();
+    el.map.scrollLeft = 0;
+  });
   el.skuFilter.addEventListener("change", renderSkus);
 
   // A rule change re-lays the racks at once and is saved for everyone.
