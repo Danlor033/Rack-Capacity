@@ -4,7 +4,7 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>Rack Planner</title>
-<link rel="stylesheet" href="style.css?v=2026-10-29o" />
+<link rel="stylesheet" href="style.css?v=2026-10-29p" />
 </head>
 <body>
 
@@ -87,6 +87,26 @@
           </div>
         </div>
         <div class="tbl-wrap cat-body" id="catBody"><table class="tbl" id="skuTable"></table></div>
+      </div>
+    </div>
+
+    <!-- Picking a shelf for one SKU, on the rack map. Above the category
+         window, below a shelf's own view. -->
+    <div class="cat-modal pick-modal" id="pickModal" role="dialog" aria-modal="true" aria-labelledby="pickTitle" hidden>
+      <div class="cat-panel">
+        <div class="cat-head">
+          <div class="detail-title">
+            <span class="detail-cap">Select location for</span>
+            <h3 id="pickTitle">&nbsp;</h3>
+            <p class="sub" id="pickSub">&nbsp;</p>
+          </div>
+          <div class="sku-tools">
+            <span class="pick-legend"><i class="vacant"></i>Vacant <i class="taken"></i>Occupied <i class="mine"></i>This SKU</span>
+            <button class="ghost small detail-close" id="pickClose" type="button" title="Close (Esc)" aria-label="Close">&times;</button>
+          </div>
+        </div>
+        <p class="sub pick-hint">Click a vacant shelf to give it to this SKU. An occupied shelf asks first.</p>
+        <div class="pick-body"><div class="map-rows" id="pickMap"></div></div>
       </div>
     </div>
 
@@ -266,16 +286,16 @@
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-<script src="config.js?v=2026-10-29o"></script>
-<script src="packer.js?v=2026-10-29o"></script>
-<script src="layout.js?v=2026-10-29o"></script>
-<script src="allocate.js?v=2026-10-29o"></script>
-<script src="db.js?v=2026-10-29o"></script>
-<script src="excel.js?v=2026-10-29o"></script>
-<script src="view3d.js?v=2026-10-29o"></script>
-<script src="view2d.js?v=2026-10-29o"></script>
-<script src="app.js?v=2026-10-29o"></script>
-<script src="dashboard.js?v=2026-10-29o"></script>
-<script src="pages.js?v=2026-10-29o"></script>
+<script src="config.js?v=2026-10-29p"></script>
+<script src="packer.js?v=2026-10-29p"></script>
+<script src="layout.js?v=2026-10-29p"></script>
+<script src="allocate.js?v=2026-10-29p"></script>
+<script src="db.js?v=2026-10-29p"></script>
+<script src="excel.js?v=2026-10-29p"></script>
+<script src="view3d.js?v=2026-10-29p"></script>
+<script src="view2d.js?v=2026-10-29p"></script>
+<script src="app.js?v=2026-10-29p"></script>
+<script src="dashboard.js?v=2026-10-29p"></script>
+<script src="pages.js?v=2026-10-29p"></script>
 </body>
 </html>

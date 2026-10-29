@@ -64,9 +64,9 @@ taken out; `excel.js` still has the reader in case it is ever wanted back.
 Nothing is placed automatically. Each SKU's shelves are picked by hand, in
 the *Locations* column of the SKU list:
 
-- **+ Select location** lists the vacant shelves first, then the occupied
-  ones with the SKU on each. Picking a vacant shelf gives it to the SKU at
-  once.
+- **+ Select location** opens the rack map for that SKU: vacant shelves
+  outlined green, occupied ones in their SKU's colour, and the SKU's own
+  shelves ringed. Clicking a vacant shelf gives it to the SKU at once.
 - Picking an **occupied** shelf asks first. Confirmed, the SKU that was on
   it is taken off and the new one goes on.
 - One SKU per shelf. A SKU can have as many shelves as it needs; its boxes

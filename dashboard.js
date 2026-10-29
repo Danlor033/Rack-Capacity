@@ -23,6 +23,8 @@ const Dashboard = (function () {
     gap: $("dataGap"), gapText: $("dataGapText"), gapShow: $("dataGapShow"),
     ruleDays: $("ruleDays"), skuStatus: $("skuStatus"),
     catList: $("catList"), catHint: $("catHint"), skuAdd: $("skuAdd"),
+    pickModal: $("pickModal"), pickTitle: $("pickTitle"), pickSub: $("pickSub"),
+    pickMap: $("pickMap"), pickClose: $("pickClose"),
     catStats: $("catStats"), catModal: $("catModal"), catTitle: $("catTitle"), catClose: $("catClose"), catAdd: $("catAdd"), catBody: $("catBody"),
     skuDialog: $("skuDialog"), skuForm: $("skuForm"), skuFormError: $("skuFormError"),
     skuCancel: $("skuCancel"), catOptions: $("catOptions"), tierOptions: $("tierOptions"),
@@ -34,6 +36,7 @@ const Dashboard = (function () {
     alloc: null,
     selected: null,    // shelf label
     category: null,    // the category whose SKUs are open; ALL for every one
+    picking: null,     // the SKU (result index) a shelf is being picked for
     search: "",
     colors: null,
     view: null,
@@ -155,17 +158,24 @@ const Dashboard = (function () {
     });
   }
 
-  function cellHtml(row, col, layer) {
+  // pick: the result index a shelf is being picked for, when drawing the
+  // picker; its own shelves are marked, and search and selection are left
+  // out.
+  function cellHtml(row, col, layer, pick) {
     const label = Layout.label(row, col, layer);
     const rec = state.alloc.locations.get(label);
     const shelf = Layout.SHELF;
     const cls = ["cell"];
     if (!rec) cls.push("free");
-    if (state.selected === label) cls.push("selected");
-    if (state.search) cls.push(matches(rec, label) ? "hit" : "dim");
+    if (pick === undefined) {
+      if (state.selected === label) cls.push("selected");
+      if (state.search) cls.push(matches(rec, label) ? "hit" : "dim");
+    } else {
+      cls.push("pick", !rec ? "vacant" : rec.sections[0].sku === pick ? "mine" : "taken");
+    }
 
     let inner = "";
-    let tip = label + (rec ? " · " + pct(rec.fill) + " full" : " · empty");
+    let tip = label + (rec ? " · " + pct(rec.fill) + " full" : pick === undefined ? " · empty" : " · vacant");
     if (rec) {
       for (const sec of rec.sections) {
         const s = state.data.skus[sec.sku];
@@ -182,6 +192,10 @@ const Dashboard = (function () {
   }
 
   function renderMap() {
+    el.map.innerHTML = mapHtml();
+  }
+
+  function mapHtml(pick) {
     let html = "";
     const widest = Math.max.apply(null, Layout.ROWS);
     // The categories on each row, most shelves first.
@@ -201,7 +215,7 @@ const Dashboard = (function () {
         colsHtml += '<div class="rack-col">';
         for (let layer = Layout.LAYERS; layer >= 1; layer--) {
           if (state.alloc.locations.has(Layout.label(row, col, layer))) used++;
-          colsHtml += cellHtml(row, col, layer);
+          colsHtml += cellHtml(row, col, layer, pick);
         }
         colsHtml += '<div class="col-num">Col ' + col + "</div></div>";
       }
@@ -211,7 +225,7 @@ const Dashboard = (function () {
         '<div class="rack-cols" style="--max:' + widest + '"><div class="layer-axis"><span>Layer 3</span><span>Layer 2</span><span>Layer 1</span></div>' +
         colsHtml + "</div></div>";
     });
-    el.map.innerHTML = html;
+    return html;
   }
 
   function renderDetail() {
@@ -313,7 +327,7 @@ const Dashboard = (function () {
     const where = r.spots.map((p) => '<span class="loc-chip"><a href="#" data-loc="' + p.label + '">' + p.label + "</a>" +
       (p.boxes ? ' <span class="sub">\u00d7' + p.boxes + "</span>" : "") +
       '<button type="button" class="loc-free" data-free="' + p.label + '" title="Free this shelf">\u00d7</button></span>').join("") +
-      '<select class="loc-pick" data-pick="' + r.index + '" title="Give this SKU a shelf"><option value="">+ Select location</option></select>';
+      '<button type="button" class="ghost small loc-pick" data-pick="' + r.index + '">+ Select location</button>';
     const note = r.problem && r.problem !== "none-needed"
       ? ' <span class="tag' + (needsAttention(r) ? " bad" : "") + '">' + WHY[r.problem] + "</span>" : "";
     return [
@@ -509,6 +523,7 @@ const Dashboard = (function () {
   document.addEventListener("keydown", function (e) {
     if (e.key !== "Escape" || el.skuDialog.open) return;
     if (!el.detail.hidden) closeDetail();
+    else if (!el.pickModal.hidden) closePicker();
     else if (!el.catModal.hidden) closeCategory();
   });
 
@@ -521,6 +536,8 @@ const Dashboard = (function () {
     }
     const free = e.target.closest("button[data-free]");
     if (free) { freeShelf(free.dataset.free); return; }
+    const pick = e.target.closest("button[data-pick]");
+    if (pick) { openPicker(Number(pick.dataset.pick)); return; }
     if (e.target.closest("input, select, button")) return;
     const tr = e.target.closest("tr[data-sku]");
     if (!tr) return;
@@ -533,44 +550,52 @@ const Dashboard = (function () {
 
   // --- choosing shelves -------------------------------------------------------
 
-  // The picker is filled only when it is opened: 231 options in every row
-  // would make the list slow again.
-  function fillPicker(sel) {
-    if (sel.dataset.filled) return;
-    const r = state.alloc.results[Number(sel.dataset.pick)];
-    const mine = new Set(r.spots.map((p) => p.label));
-    const vacant = [], taken = [];
-    for (const spot of Layout.all()) {
-      if (mine.has(spot.label)) continue;
-      const rec = state.alloc.locations.get(spot.label);
-      if (!rec) vacant.push('<option value="' + spot.label + '">' + spot.label + "</option>");
-      else taken.push('<option value="' + spot.label + '">' + spot.label + " \u2014 " +
-        esc(state.data.skus[rec.sections[0].sku].sku) + "</option>");
-    }
-    sel.innerHTML = '<option value="">+ Select location</option>' +
-      '<optgroup label="Vacant (' + vacant.length + ')">' + vacant.join("") + "</optgroup>" +
-      (taken.length ? '<optgroup label="Occupied \u2014 replaces the SKU there">' + taken.join("") + "</optgroup>" : "");
-    sel.dataset.filled = "1";
+  // Picking a shelf on the rack map. Vacant shelves are given at once; an
+  // occupied one asks first.
+  function openPicker(index) {
+    state.picking = index;
+    renderPicker();
+    el.pickModal.hidden = false;
   }
-  el.skuTable.addEventListener("mousedown", function (e) {
-    const sel = e.target.closest("select[data-pick]");
-    if (sel) fillPicker(sel);
+
+  function closePicker() {
+    state.picking = null;
+    el.pickModal.hidden = true;
+    el.pickMap.innerHTML = "";
+  }
+
+  function renderPicker() {
+    if (state.picking === null) return;
+    const r = state.alloc.results[state.picking];
+    el.pickTitle.textContent = r.sku.sku;
+    const vacant = Layout.count - state.alloc.locations.size;
+    const facts = [catName(r.sku.category)];
+    if (r.counted && r.wanted > 0) facts.push(fmt(r.wanted) + (r.wanted === 1 ? " box" : " boxes") + " needed");
+    if (r.perShelf) facts.push(fmt(r.perShelf) + " fit on a shelf");
+    facts.push(r.spots.length ? "on " + r.spots.map((p) => p.label).join(", ") : "no shelf yet");
+    facts.push(vacant + " shelves vacant");
+    el.pickSub.textContent = facts.join(" · ");
+    el.pickMap.innerHTML = mapHtml(state.picking);
+  }
+
+  el.pickMap.addEventListener("click", function (e) {
+    const cell = e.target.closest(".cell[data-label]");
+    if (!cell || cell.classList.contains("mine")) return;
+    giveShelf(state.picking, cell.dataset.label);
   });
-  el.skuTable.addEventListener("focusin", function (e) {
-    const sel = e.target.closest("select[data-pick]");
-    if (sel) fillPicker(sel);
+  el.pickClose.addEventListener("click", closePicker);
+  el.pickModal.addEventListener("click", function (e) {
+    if (e.target === el.pickModal) closePicker();
   });
 
-  async function giveShelf(sel) {
-    const label = sel.value;
-    if (!label) return;
-    const r = state.alloc.results[Number(sel.dataset.pick)];
+  async function giveShelf(index, label) {
+    const r = state.alloc.results[index];
     const rec = state.alloc.locations.get(label);
     if (rec) {
       const old = state.data.skus[rec.sections[0].sku];
       const ok = confirm(label + " already holds " + old.sku + ".\n\nPut " + r.sku.sku + " there instead? " +
         old.sku + " will be removed from " + label + ".");
-      if (!ok) { sel.value = ""; return; }
+      if (!ok) return;
     }
     if (!r.sku.id) {
       failed = "This SKU was loaded before shelves could be chosen \u2014 reload the page, then try again.";
@@ -584,11 +609,11 @@ const Dashboard = (function () {
       const head = await ensureImport();
       const given = await DB.shelves.assign(head.id, label, r.sku.id);
       state.data.shelves = state.data.shelves.filter((a) => a.label !== label).concat([given]);
+      closePicker();
       refresh();
     } catch (err) {
       console.error(err);
       failed = "Could not give " + label + " to " + r.sku.sku + ": " + err.message;
-      sel.value = "";
     } finally {
       saving--;
       status();
@@ -631,8 +656,6 @@ const Dashboard = (function () {
   }
 
   el.skuTable.addEventListener("change", function (e) {
-    const pick = e.target.closest("select[data-pick]");
-    if (pick) { giveShelf(pick); return; }
     const input = e.target.closest("input[data-field]");
     if (!input) return;
     const r = state.alloc.results[Number(input.dataset.sku)];

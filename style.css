@@ -533,7 +533,25 @@ body.detail-open, body.cat-open { overflow: hidden; }
   font-size: 13px; line-height: 1; padding: 1px 4px; border-radius: 4px;
 }
 .loc-free:hover { color: var(--warn); background: color-mix(in srgb, var(--warn) 12%, transparent); }
-#skuTable select.loc-pick { width: auto; max-width: 100%; padding: 2px 6px; font-size: 12px; }
+#skuTable .loc-pick { padding: 2px 8px; font-size: 12px; }
+
+/* ---- picking a shelf on the rack map ---- */
+.pick-modal { z-index: 45; }
+.pick-hint { margin: 10px 18px 0; font-size: 12px; }
+.pick-body { flex: 1; min-height: 0; overflow: auto; padding: 12px 18px 18px; }
+.cell.pick.vacant {
+  border-style: solid; border-color: color-mix(in srgb, var(--good, #17a673) 70%, transparent);
+  background: color-mix(in srgb, var(--good, #17a673) 10%, transparent);
+}
+.cell.pick.vacant:hover { background: color-mix(in srgb, var(--good, #17a673) 28%, transparent); border-color: var(--good, #17a673); }
+.cell.pick.taken { opacity: .75; }
+.cell.pick.taken:hover { opacity: 1; border-color: var(--warn); }
+.cell.pick.mine { outline: 2px solid var(--accent); outline-offset: 1px; cursor: default; }
+.pick-legend { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--ink-soft); margin-right: 8px; }
+.pick-legend i { display: inline-block; width: 14px; height: 10px; border-radius: 3px; margin-left: 8px; border: 1px solid var(--line); }
+.pick-legend i.vacant { background: color-mix(in srgb, var(--good, #17a673) 25%, transparent); border-color: var(--good, #17a673); }
+.pick-legend i.taken { background: #94a3b8; }
+.pick-legend i.mine { outline: 2px solid var(--accent); outline-offset: 0; }
 .cat-stats { margin: 6px 0 4px; gap: 22px; }
 .cat-stats dd { font-size: 16px; }
 
