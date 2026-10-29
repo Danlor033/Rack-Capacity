@@ -7,6 +7,11 @@
 // the full height, only as wide as those boxes need -- and sections from
 // different SKUs sit side by side along the shelf. Nothing is ever stacked
 // on or hidden behind another SKU, so every SKU on a shelf faces the aisle.
+//
+// Ordered by sales per category, each category also gets rows of its own:
+// it starts on a fresh row, fills that row's best shelves, and carries on
+// into the next free row only if it needs more. Once every row is taken, a
+// category left over gets no shelf.
 const Allocate = (function () {
   "use strict";
 
@@ -76,7 +81,7 @@ const Allocate = (function () {
       category: (a, b) => compareText(a.category, b.category) || tier(a, b) || sold(a, b) || sku(a, b),
       sales: (a, b) => sold(a, b) || tier(a, b) || sku(a, b),
       // The best-selling category first, and within each category the
-      // best-selling SKU first -- a category stays together on the racks.
+      // best-selling SKU first. Each category gets rows of its own (see run).
       categorySales: (a, b) => busiest(a, b) || sold(a, b) || sku(a, b),
     };
   }
@@ -109,6 +114,20 @@ const Allocate = (function () {
     const shelf = Layout.SHELF;
     const queue = Layout.ordered(rules.fill);
     let next = 0;
+
+    // One category per row: the same shelf order, cut into rows, with the
+    // rows taken in the order their best shelf comes up.
+    const byRow = rules.order === "categorySales";
+    const rows = [];
+    if (byRow) {
+      const at = new Map();
+      for (const spot of queue) {
+        if (!at.has(spot.row)) { at.set(spot.row, rows.length); rows.push([]); }
+        rows[at.get(spot.row)].push(spot);
+      }
+    }
+    let rowAt = -1, rowPos = 0, rowCategory = null;
+    const rowsOf = new Map(); // category -> the rows it was given
 
     const locations = new Map(); // label -> shelf record, for every shelf in use
     const open = [];             // shelves with room left for another section
@@ -143,9 +162,21 @@ const Allocate = (function () {
       return { packLen: lo, len: Math.min(lo, extent(packed)) };
     }
 
+    function nextSpot(category) {
+      if (!byRow) return next < queue.length ? queue[next++] : null;
+      if (category !== rowCategory) { rowAt++; rowPos = 0; rowCategory = category; }
+      while (rowAt < rows.length && rowPos >= rows[rowAt].length) { rowAt++; rowPos = 0; }
+      if (rowAt >= rows.length) return null;
+      const spot = rows[rowAt][rowPos++];
+      const given = rowsOf.get(category) || [];
+      if (given.indexOf(spot.row) < 0) given.push(spot.row);
+      rowsOf.set(category, given);
+      return spot;
+    }
+
     function takeShelf(category) {
-      if (next >= queue.length) return null;
-      const spot = queue[next++];
+      const spot = nextSpot(category);
+      if (!spot) return null;
       const rec = {
         label: spot.label, row: spot.row, col: spot.col, layer: spot.layer,
         sections: [], free: shelf.l, category: category,
@@ -220,7 +251,7 @@ const Allocate = (function () {
           const cut = slice(left, box);
           if (cut) {
             let rec = open.find((o) => o.free >= cut.len - EPS &&
-              (rules.mix === "any" || o.category === category));
+              ((rules.mix === "any" && !byRow) || o.category === category));
             if (!rec) {
               rec = takeShelf(category);
               if (rec) open.push(rec);
@@ -237,7 +268,22 @@ const Allocate = (function () {
 
       r.placed = r.wanted - left;
       r.unplaced = left;
-      if (left > 0) r.problem = "no-room";
+      if (left > 0) r.problem = byRow ? "no-row" : "no-room";
+    }
+
+    // Which rows each category ended up with, and the categories that wanted
+    // shelves after every row was taken.
+    const categories = [];
+    if (byRow) {
+      const seen = new Map();
+      for (const r of order) {
+        const key = text(r.sku.category).toLowerCase();
+        if (!seen.has(key)) {
+          seen.set(key, { name: text(r.sku.category), rows: rowsOf.get(key) || [], short: 0 });
+          categories.push(seen.get(key));
+        }
+        if (r.problem === "no-row") seen.get(key).short += r.unplaced;
+      }
     }
 
     // Totals.
@@ -269,7 +315,10 @@ const Allocate = (function () {
       fill: boxVolume / (shelfVolume * Layout.count),
     };
 
-    return { rules: rules, tiers: tiers, locations: locations, results: results, stats: stats, packIn: packIn };
+    return {
+      rules: rules, tiers: tiers, locations: locations, results: results, stats: stats, packIn: packIn,
+      byRow: byRow, categories: categories,
+    };
   }
 
   // Every box on one shelf, positioned for drawing. Within a section the

@@ -4,7 +4,7 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>Rack Planner</title>
-<link rel="stylesheet" href="style.css?v=2026-10-29c" />
+<link rel="stylesheet" href="style.css?v=2026-10-29d" />
 </head>
 <body>
 
@@ -112,26 +112,28 @@
         Changes are saved for everyone.</p>
     </details>
 
-    <div class="dash-body">
-      <div class="map card" id="rackMap"></div>
+    <div class="banner" id="rowGap" hidden>
+      <p id="rowGapText"></p>
+    </div>
 
-      <aside class="detail card" id="detail">
-        <div class="detail-empty" id="detailEmpty">
-          <p>Pick a shelf on the map to see what goes on it.</p>
+    <div class="map card" id="rackMap"></div>
+    <p class="sub map-hint">Click a shelf to see how its boxes go in.</p>
+
+    <!-- What is on one shelf: floats over the page, so the map keeps the
+         full width. It can be dragged by its title bar, and another shelf can
+         be clicked while it is open. -->
+    <div class="detail card" id="detail" role="dialog" aria-labelledby="dLabel" hidden>
+      <div class="detail-head" id="detailHead">
+        <div>
+          <h3 id="dLabel">&nbsp;</h3>
+          <p class="sub" id="dWhere">&nbsp;</p>
         </div>
-        <div id="detailBody" hidden>
-          <div class="detail-head">
-            <div>
-              <h3 id="dLabel">&nbsp;</h3>
-              <p class="sub" id="dWhere">&nbsp;</p>
-            </div>
-            <div class="detail-fill"><strong id="dFill">&nbsp;</strong><span>full</span></div>
-          </div>
-          <div class="canvas-wrap detail-3d"><canvas id="dCanvas"></canvas></div>
-          <p class="hint">Drag to turn &middot; scroll to zoom</p>
-          <table class="tbl" id="dTable"></table>
-        </div>
-      </aside>
+        <div class="detail-fill"><strong id="dFill">&nbsp;</strong><span>full</span></div>
+        <button class="ghost small detail-close" id="detailClose" type="button" title="Close (Esc)" aria-label="Close">&times;</button>
+      </div>
+      <div class="canvas-wrap detail-3d"><canvas id="dCanvas"></canvas></div>
+      <p class="hint">Drag to turn &middot; scroll to zoom</p>
+      <table class="tbl" id="dTable"></table>
     </div>
 
     <div class="card sku-card">
@@ -288,17 +290,17 @@
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-<script src="config.js?v=2026-10-29c"></script>
-<script src="packer.js?v=2026-10-29c"></script>
-<script src="layout.js?v=2026-10-29c"></script>
-<script src="allocate.js?v=2026-10-29c"></script>
-<script src="db.js?v=2026-10-29c"></script>
-<script src="excel.js?v=2026-10-29c"></script>
-<script src="view3d.js?v=2026-10-29c"></script>
-<script src="view2d.js?v=2026-10-29c"></script>
-<script src="app.js?v=2026-10-29c"></script>
-<script src="dashboard.js?v=2026-10-29c"></script>
-<script src="importer.js?v=2026-10-29c"></script>
-<script src="pages.js?v=2026-10-29c"></script>
+<script src="config.js?v=2026-10-29d"></script>
+<script src="packer.js?v=2026-10-29d"></script>
+<script src="layout.js?v=2026-10-29d"></script>
+<script src="allocate.js?v=2026-10-29d"></script>
+<script src="db.js?v=2026-10-29d"></script>
+<script src="excel.js?v=2026-10-29d"></script>
+<script src="view3d.js?v=2026-10-29d"></script>
+<script src="view2d.js?v=2026-10-29d"></script>
+<script src="app.js?v=2026-10-29d"></script>
+<script src="dashboard.js?v=2026-10-29d"></script>
+<script src="importer.js?v=2026-10-29d"></script>
+<script src="pages.js?v=2026-10-29d"></script>
 </body>
 </html>
