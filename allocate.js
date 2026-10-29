@@ -62,14 +62,22 @@ const Allocate = (function () {
     return known.concat(rest);
   }
 
-  function makeOrders(rank) {
+  // categorySold: each category's total sold per day, for ranking whole
+  // categories against each other.
+  function makeOrders(rank, categorySold) {
     const tier = (a, b) => rank(a.tier) - rank(b.tier);
     const sold = (a, b) => num(b.soldPerDay) - num(a.soldPerDay);
     const sku = (a, b) => compareText(a.sku, b.sku);
+    const busiest = (a, b) =>
+      (categorySold.get(text(b.category)) || 0) - (categorySold.get(text(a.category)) || 0) ||
+      compareText(a.category, b.category);
     return {
       tier: (a, b) => tier(a, b) || sold(a, b) || sku(a, b),
       category: (a, b) => compareText(a.category, b.category) || tier(a, b) || sold(a, b) || sku(a, b),
       sales: (a, b) => sold(a, b) || tier(a, b) || sku(a, b),
+      // The best-selling category first, and within each category the
+      // best-selling SKU first -- a category stays together on the racks.
+      categorySales: (a, b) => busiest(a, b) || sold(a, b) || sku(a, b),
     };
   }
 
@@ -152,7 +160,14 @@ const Allocate = (function () {
     const rankOf = new Map(tiers.map((t, i) => [t, i]));
     const rank = (t) => (rankOf.has(text(t)) ? rankOf.get(text(t)) : tiers.length);
     const skip = new Set((rules.skipTiers || []).map(text));
-    const ORDERS = makeOrders(rank);
+    // A tier left off the racks does not make its category look busier.
+    const categorySold = new Map();
+    for (const s of skus) {
+      if (skip.has(text(s.tier))) continue;
+      const c = text(s.category);
+      categorySold.set(c, (categorySold.get(c) || 0) + num(s.soldPerDay));
+    }
+    const ORDERS = makeOrders(rank, categorySold);
 
     const results = skus.map(function (s, i) {
       const wanted = boxesWanted(s, days);

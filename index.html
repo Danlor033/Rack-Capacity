@@ -4,7 +4,7 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>Rack Planner</title>
-<link rel="stylesheet" href="style.css?v=2026-10-29b" />
+<link rel="stylesheet" href="style.css?v=2026-10-29c" />
 </head>
 <body>
 
@@ -78,6 +78,7 @@
             <option value="tier">Tier, then sold per day</option>
             <option value="category">Category, then tier</option>
             <option value="sales">Sold per day only</option>
+            <option value="categorySales">Sold per day by category (busiest category first)</option>
           </select>
         </label>
         <label class="field"><span>Best shelves</span>
@@ -85,6 +86,7 @@
             <option value="layer">Layer 1 everywhere, then 2, then 3</option>
             <option value="row">Row by row, lowest layer first</option>
             <option value="label">In label order (1-1-1, 1-1-2 &hellip;)</option>
+            <option value="colDesc">Highest column first, lowest layer first</option>
           </select>
         </label>
         <label class="field"><span>Sharing a shelf</span>
@@ -286,17 +288,17 @@
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-<script src="config.js?v=2026-10-29b"></script>
-<script src="packer.js?v=2026-10-29b"></script>
-<script src="layout.js?v=2026-10-29b"></script>
-<script src="allocate.js?v=2026-10-29b"></script>
-<script src="db.js?v=2026-10-29b"></script>
-<script src="excel.js?v=2026-10-29b"></script>
-<script src="view3d.js?v=2026-10-29b"></script>
-<script src="view2d.js?v=2026-10-29b"></script>
-<script src="app.js?v=2026-10-29b"></script>
-<script src="dashboard.js?v=2026-10-29b"></script>
-<script src="importer.js?v=2026-10-29b"></script>
-<script src="pages.js?v=2026-10-29b"></script>
+<script src="config.js?v=2026-10-29c"></script>
+<script src="packer.js?v=2026-10-29c"></script>
+<script src="layout.js?v=2026-10-29c"></script>
+<script src="allocate.js?v=2026-10-29c"></script>
+<script src="db.js?v=2026-10-29c"></script>
+<script src="excel.js?v=2026-10-29c"></script>
+<script src="view3d.js?v=2026-10-29c"></script>
+<script src="view2d.js?v=2026-10-29c"></script>
+<script src="app.js?v=2026-10-29c"></script>
+<script src="dashboard.js?v=2026-10-29c"></script>
+<script src="importer.js?v=2026-10-29c"></script>
+<script src="pages.js?v=2026-10-29c"></script>
 </body>
 </html>

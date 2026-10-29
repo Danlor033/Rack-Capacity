@@ -68,8 +68,8 @@ the same racks:
 | Rule | Choices |
 | --- | --- |
 | Days of stock in 4KB | Any whole number of days; Needed qty is Sold per day × this |
-| Who goes first | Tier then sold per day · Category then tier · Sold per day only (tiers have their own order, and any tier can be left off) |
-| Best shelves | Layer 1 everywhere, then 2, then 3 · Row by row · Label order |
+| Who goes first | Tier then sold per day · Category then tier · Sold per day only · Sold per day by category -- the category with the highest total sold per day first, its best-selling SKU first (tiers have their own order, and any tier can be left off) |
+| Best shelves | Layer 1 everywhere, then 2, then 3 · Row by row · Label order · Highest column first, lowest layer first (column 14 down to 1; where rows share a column number, Row 1 first) |
 | Sharing a shelf | Same category only · Any SKU · Never (one SKU per shelf) |
 | Turning boxes | Any way up · Upright only |
 

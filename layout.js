@@ -36,6 +36,9 @@ const Layout = (function () {
     row: (a, b) => a.row - b.row || a.layer - b.layer || a.col - b.col,
     // Straight down the labels.
     label: (a, b) => a.row - b.row || a.col - b.col || a.layer - b.layer,
+    // The highest column number first, and within a column the floor first.
+    // Where several rows share a column number, Row 1 leads.
+    colDesc: (a, b) => b.col - a.col || a.layer - b.layer || a.row - b.row,
   };
 
   function ordered(fill) {
