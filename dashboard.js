@@ -19,7 +19,7 @@ const Dashboard = (function () {
     rulesSummary: $("rulesSummary"),
     ruleOrder: $("ruleOrder"), ruleFill: $("ruleFill"), ruleMix: $("ruleMix"), ruleTurn: $("ruleTurn"),
     map: $("rackMap"),
-    detail: $("detail"), detailHead: $("detailHead"), detailClose: $("detailClose"),
+    detail: $("detail"), detailClose: $("detailClose"),
     rowGap: $("rowGap"), rowGapText: $("rowGapText"),
     dLabel: $("dLabel"), dWhere: $("dWhere"), dFill: $("dFill"), dCanvas: $("dCanvas"), dTable: $("dTable"),
     skuFilter: $("skuFilter"), skuTable: $("skuTable"),
@@ -145,13 +145,19 @@ const Dashboard = (function () {
       el.gap.hidden = true;
     }
 
-    // One category per row: more categories than rows means some get none.
-    const left = state.alloc.categories.filter((c) => c.short > 0);
-    if (left.length) {
-      const boxes = left.reduce((n, c) => n + c.short, 0);
-      el.rowGapText.innerHTML = "Each category gets rows of its own, and all " + Layout.ROWS.length +
-        " rows are taken. <b>" + left.map((c) => esc(c.name || "(no category)")).join(", ") + "</b> got no row" +
-        " &mdash; " + boxes.toLocaleString() + " boxes with no shelf.";
+    // One category per row: more categories than rows means some share.
+    const guests = state.alloc.categories.filter((c) => c.guest);
+    if (guests.length) {
+      const name = (c) => esc(c.name || "(no category)");
+      const list = (xs) => (xs.length > 1 ? xs.slice(0, -1).join(", ") + " and " + xs[xs.length - 1] : xs[0]);
+      const shared = [...new Set(guests.flatMap((g) => g.rows))].sort((a, b) => a - b);
+      const hosts = shared.map(function (row) {
+        const host = state.alloc.categories.find((c) => !c.guest && c.rows.indexOf(row) >= 0);
+        return "Row " + row + (host ? " with " + name(host) + " (" + host.skus + " SKUs)" : "");
+      });
+      el.rowGapText.innerHTML = "There are more categories than rows, so <b>" + list(guests.map(name)) + "</b> " +
+        (guests.length === 1 ? "shares " : "share ") + list(hosts) +
+        " &mdash; " + (hosts.length === 1 ? "the category" : "the categories") + " with the fewest SKUs.";
       el.rowGap.hidden = false;
     } else {
       el.rowGap.hidden = true;
@@ -223,9 +229,14 @@ const Dashboard = (function () {
   function renderMap() {
     let html = "";
     const widest = Math.max.apply(null, Layout.ROWS);
+    // Each row's categories: its own first, then any sharing it.
     const rowNames = new Map();
-    for (const c of state.alloc.categories) {
-      for (const row of c.rows) rowNames.set(row, c.name || "(no category)");
+    for (const c of state.alloc.categories.filter((c) => !c.guest).concat(state.alloc.categories.filter((c) => c.guest))) {
+      for (const row of c.rows) {
+        const names = rowNames.get(row) || [];
+        names.push(c.name || "(no category)");
+        rowNames.set(row, names);
+      }
     }
     Layout.ROWS.forEach(function (cols, i) {
       const row = i + 1;
@@ -237,12 +248,12 @@ const Dashboard = (function () {
           if (state.alloc.locations.has(Layout.label(row, col, layer))) used++;
           colsHtml += cellHtml(row, col, layer);
         }
-        colsHtml += '<div class="col-num">' + col + "</div></div>";
+        colsHtml += '<div class="col-num">Col ' + col + "</div></div>";
       }
-      const name = rowNames.has(row) ? '<span class="row-cat">' + esc(rowNames.get(row)) + "</span>" : "";
+      const name = rowNames.has(row) ? '<span class="row-cat">' + rowNames.get(row).map(esc).join(" · ") + "</span>" : "";
       html += '<div class="rack-row"><div class="rack-row-head"><b>Row ' + row + "</b>" + name +
         '<span class="sub">' + cols + " columns · " + used + " of " + cols * Layout.LAYERS + " shelves used</span></div>" +
-        '<div class="rack-cols" style="--max:' + widest + '"><div class="layer-axis"><span>3</span><span>2</span><span>1</span></div>' +
+        '<div class="rack-cols" style="--max:' + widest + '"><div class="layer-axis"><span>Layer 3</span><span>Layer 2</span><span>Layer 1</span></div>' +
         colsHtml + "</div></div>";
     });
     el.map.innerHTML = html;
@@ -251,6 +262,7 @@ const Dashboard = (function () {
   function renderDetail() {
     const label = state.selected;
     el.detail.hidden = !label;
+    document.body.classList.toggle("detail-open", !!label);
     if (!label) return;
 
     const [, row, col, layer] = label.split("-").map(Number);
@@ -278,8 +290,8 @@ const Dashboard = (function () {
       el.dTable.innerHTML = '<tbody><tr><td class="sub">Empty shelf — nothing in the sheet needs it.</td></tr></tbody>';
       return;
     }
-    let html = "<thead><tr><th></th><th>SKU</th><th class=\"num\">Boxes</th>" +
-      "<th class=\"num\">Qty</th><th class=\"num\">Width</th></tr></thead><tbody>";
+    let html = "<thead><tr><th></th><th>SKU</th><th class=\"num\">Sold / day</th>" +
+      "<th class=\"num\">Boxes</th><th class=\"num\">Qty</th></tr></thead><tbody>";
     rec.sections.forEach(function (sec, i) {
       const s = state.data.skus[sec.sku];
       const qty = s.qtyPerBox > 0 ? fmt(sec.boxes * s.qtyPerBox) : "";
@@ -287,8 +299,8 @@ const Dashboard = (function () {
       html += '<tr><td><span class="chip" style="background:' + colorFor(i) + '"></span></td>' +
         '<td class="sku-cell"><b>' + esc(s.sku) + '</b><span class="sub">' +
         esc([s.category, s.tier, size].filter(Boolean).join(" · ")) + "</span></td>" +
-        '<td class="num">' + fmt(sec.boxes) + '</td><td class="num">' + qty + "</td>" +
-        '<td class="num">' + Math.round(sec.len) + " cm</td></tr>";
+        '<td class="num">' + fmt(s.soldPerDay) + '</td><td class="num">' + fmt(sec.boxes) + "</td>" +
+        '<td class="num">' + qty + "</td></tr>";
     });
     const free = Layout.SHELF.l - rec.sections.reduce((n, s) => n + s.len, 0);
     html += "</tbody>";
@@ -302,12 +314,11 @@ const Dashboard = (function () {
     "too-big": "box is bigger than a shelf",
     "no-size": "box size missing",
     "no-room": "racks are full",
-    "no-row": "no row left for its category",
     "none-needed": "no boxes needed",
     "no-count": "no qty per box",
     "skipped": "tier gets no shelves",
   };
-  const ATTENTION = ["too-big", "no-size", "no-room", "no-row", "no-count"];
+  const ATTENTION = ["too-big", "no-size", "no-room", "no-count"];
 
   // The numbers a SKU's boxes are worked out from, editable in place.
   const EDITABLE = [
@@ -398,36 +409,12 @@ const Dashboard = (function () {
     state.selected = null;
     el.map.querySelectorAll(".cell.selected").forEach((c) => c.classList.remove("selected"));
     el.detail.hidden = true;
+    document.body.classList.remove("detail-open");
   }
 
   el.detailClose.addEventListener("click", closeDetail);
   document.addEventListener("keydown", function (e) {
     if (e.key === "Escape" && !el.detail.hidden) closeDetail();
-  });
-
-  // The window is moved by its title bar, and stays where it was put.
-  el.detailHead.addEventListener("pointerdown", function (e) {
-    if (e.button !== 0 || e.target.closest("button")) return;
-    if (window.matchMedia("(max-width: 760px)").matches) return;
-    const box = el.detail.getBoundingClientRect();
-    const dx = e.clientX - box.left, dy = e.clientY - box.top;
-    el.detailHead.setPointerCapture(e.pointerId);
-    function move(ev) {
-      const x = Math.min(Math.max(0, ev.clientX - dx), window.innerWidth - box.width);
-      const y = Math.min(Math.max(0, ev.clientY - dy), window.innerHeight - 60);
-      el.detail.style.left = x + "px";
-      el.detail.style.top = y + "px";
-      el.detail.style.right = "auto";
-      el.detail.style.bottom = "auto";
-    }
-    function up() {
-      el.detailHead.removeEventListener("pointermove", move);
-      el.detailHead.removeEventListener("pointerup", up);
-      el.detailHead.removeEventListener("pointercancel", up);
-    }
-    el.detailHead.addEventListener("pointermove", move);
-    el.detailHead.addEventListener("pointerup", up);
-    el.detailHead.addEventListener("pointercancel", up);
   });
 
   el.skuTable.addEventListener("click", function (e) {

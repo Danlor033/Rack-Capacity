@@ -8,10 +8,11 @@
 // different SKUs sit side by side along the shelf. Nothing is ever stacked
 // on or hidden behind another SKU, so every SKU on a shelf faces the aisle.
 //
-// Ordered by sales per category, each category also gets rows of its own:
-// it starts on a fresh row, fills that row's best shelves, and carries on
-// into the next free row only if it needs more. Once every row is taken, a
-// category left over gets no shelf.
+// Ordered by category, each category also gets rows of its own: the one
+// with the most SKUs starts on Row 1, each next one on a fresh row, and a
+// category carries on into the next free row only if it needs more. Once
+// every row is taken, the categories left over share the row of the
+// category with the fewest SKUs (then the next fewest, as rows fill up).
 const Allocate = (function () {
   "use strict";
 
@@ -67,22 +68,24 @@ const Allocate = (function () {
     return known.concat(rest);
   }
 
-  // categorySold: each category's total sold per day, for ranking whole
-  // categories against each other.
-  function makeOrders(rank, categorySold) {
+  // categorySold / categorySkus: each category's total sold per day and
+  // number of SKUs, for ranking whole categories against each other.
+  function makeOrders(rank, categorySold, categorySkus) {
     const tier = (a, b) => rank(a.tier) - rank(b.tier);
     const sold = (a, b) => num(b.soldPerDay) - num(a.soldPerDay);
     const sku = (a, b) => compareText(a.sku, b.sku);
-    const busiest = (a, b) =>
+    const biggest = (a, b) =>
+      (categorySkus.get(text(b.category)) || 0) - (categorySkus.get(text(a.category)) || 0) ||
       (categorySold.get(text(b.category)) || 0) - (categorySold.get(text(a.category)) || 0) ||
       compareText(a.category, b.category);
     return {
       tier: (a, b) => tier(a, b) || sold(a, b) || sku(a, b),
       category: (a, b) => compareText(a.category, b.category) || tier(a, b) || sold(a, b) || sku(a, b),
       sales: (a, b) => sold(a, b) || tier(a, b) || sku(a, b),
-      // The best-selling category first, and within each category the
-      // best-selling SKU first. Each category gets rows of its own (see run).
-      categorySales: (a, b) => busiest(a, b) || sold(a, b) || sku(a, b),
+      // The category with the most SKUs first (ties: the better-selling
+      // one), and within each category the best-selling SKU first. Each
+      // category gets rows of its own (see run).
+      categorySales: (a, b) => biggest(a, b) || sold(a, b) || sku(a, b),
     };
   }
 
@@ -126,8 +129,10 @@ const Allocate = (function () {
         rows[at.get(spot.row)].push(spot);
       }
     }
-    let rowAt = -1, rowPos = 0, rowCategory = null;
-    const rowsOf = new Map(); // category -> the rows it was given
+    let rowAt = -1, rowCategory = null;
+    const taken = rows.map(() => 0);  // shelves used so far in each row
+    const owner = rows.map(() => null); // the category each row was given to
+    const rowsOf = new Map(); // category -> the rows it has shelves in
 
     const locations = new Map(); // label -> shelf record, for every shelf in use
     const open = [];             // shelves with room left for another section
@@ -164,10 +169,22 @@ const Allocate = (function () {
 
     function nextSpot(category) {
       if (!byRow) return next < queue.length ? queue[next++] : null;
-      if (category !== rowCategory) { rowAt++; rowPos = 0; rowCategory = category; }
-      while (rowAt < rows.length && rowPos >= rows[rowAt].length) { rowAt++; rowPos = 0; }
-      if (rowAt >= rows.length) return null;
-      const spot = rows[rowAt][rowPos++];
+      if (category !== rowCategory) { rowAt++; rowCategory = category; }
+      while (rowAt < rows.length && taken[rowAt] >= rows[rowAt].length) rowAt++;
+      let at = rowAt;
+      if (at < rows.length) {
+        if (owner[at] === null) owner[at] = category;
+      } else {
+        // No fresh row left: the free shelves of the row whose category has
+        // the fewest SKUs.
+        at = -1;
+        for (let i = 0; i < rows.length; i++) {
+          if (taken[i] >= rows[i].length) continue;
+          if (at < 0 || skusIn(owner[i]) < skusIn(owner[at])) at = i;
+        }
+        if (at < 0) return null;
+      }
+      const spot = rows[at][taken[at]++];
       const given = rowsOf.get(category) || [];
       if (given.indexOf(spot.row) < 0) given.push(spot.row);
       rowsOf.set(category, given);
@@ -192,13 +209,20 @@ const Allocate = (function () {
     const rank = (t) => (rankOf.has(text(t)) ? rankOf.get(text(t)) : tiers.length);
     const skip = new Set((rules.skipTiers || []).map(text));
     // A tier left off the racks does not make its category look busier.
-    const categorySold = new Map();
+    const categorySold = new Map(), categorySkus = new Map();
     for (const s of skus) {
       if (skip.has(text(s.tier))) continue;
       const c = text(s.category);
       categorySold.set(c, (categorySold.get(c) || 0) + num(s.soldPerDay));
+      categorySkus.set(c, (categorySkus.get(c) || 0) + 1);
     }
-    const ORDERS = makeOrders(rank, categorySold);
+    const ORDERS = makeOrders(rank, categorySold, categorySkus);
+    const skusByKey = new Map();
+    for (const [c, n] of categorySkus) {
+      const key = c.toLowerCase();
+      skusByKey.set(key, (skusByKey.get(key) || 0) + n);
+    }
+    function skusIn(category) { return skusByKey.get(category) || 0; }
 
     const results = skus.map(function (s, i) {
       const wanted = boxesWanted(s, days);
@@ -268,21 +292,25 @@ const Allocate = (function () {
 
       r.placed = r.wanted - left;
       r.unplaced = left;
-      if (left > 0) r.problem = byRow ? "no-row" : "no-room";
+      if (left > 0) r.problem = "no-room";
     }
 
-    // Which rows each category ended up with, and the categories that wanted
-    // shelves after every row was taken.
+    // Which rows each category ended up in, in priority order, and whose
+    // row each one is: a category's own, or a guest in another's.
     const categories = [];
     if (byRow) {
-      const seen = new Map();
+      const owned = new Map();
+      owner.forEach((c, i) => { if (c !== null) owned.set(rows[i][0].row, c); });
+      const seen = new Set();
       for (const r of order) {
         const key = text(r.sku.category).toLowerCase();
-        if (!seen.has(key)) {
-          seen.set(key, { name: text(r.sku.category), rows: rowsOf.get(key) || [], short: 0 });
-          categories.push(seen.get(key));
-        }
-        if (r.problem === "no-row") seen.get(key).short += r.unplaced;
+        if (seen.has(key)) continue;
+        seen.add(key);
+        const inRows = rowsOf.get(key) || [];
+        categories.push({
+          key: key, name: text(r.sku.category), skus: skusIn(key), rows: inRows,
+          guest: inRows.length > 0 && inRows.every((row) => owned.get(row) !== key),
+        });
       }
     }
 

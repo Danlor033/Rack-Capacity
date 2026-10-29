@@ -373,18 +373,18 @@ h2, h3 { letter-spacing: -.01em; }
 
 .rack-cols {
   display: grid;
-  grid-template-columns: 18px repeat(var(--max), minmax(44px, 1fr));
+  grid-template-columns: 48px repeat(var(--max), minmax(44px, 1fr));
   gap: 5px;
 }
 
 .layer-axis {
   display: grid; grid-template-rows: repeat(3, 38px); gap: 4px;
-  font-size: 10px; color: var(--ink-soft); text-align: center; align-items: center;
+  font-size: 10px; color: var(--ink-soft); text-align: right; align-items: center; white-space: nowrap;
 }
 
 .rack-col { display: grid; grid-template-rows: repeat(3, 38px) auto; gap: 4px; }
 
-.col-num { font-size: 10px; color: var(--ink-soft); text-align: center; line-height: 1.4; }
+.col-num { font-size: 10px; color: var(--ink-soft); text-align: center; line-height: 1.4; white-space: nowrap; }
 
 .cell {
   position: relative; overflow: hidden; cursor: pointer;
@@ -413,29 +413,37 @@ h2, h3 { letter-spacing: -.01em; }
   color: #fff; text-shadow: 0 0 2px rgba(0, 0, 0, .7);
 }
 
-/* ---- shelf detail: a window floating over the page ---- */
+/* ---- shelf detail: full screen over the page ---- */
 
 .detail {
-  position: fixed; right: 24px; bottom: 24px; z-index: 50;
-  width: 440px; max-width: calc(100vw - 32px); max-height: calc(100vh - 48px);
-  overflow: auto; padding: 0 16px 16px;
-  box-shadow: 0 2px 6px rgba(16, 26, 40, .12), 0 18px 48px rgba(16, 26, 40, .28);
+  position: fixed; inset: 0; z-index: 50;
+  display: flex; flex-direction: column;
+  background: var(--bg);
 }
 .detail[hidden] { display: none; }
+body.detail-open { overflow: hidden; }
 .detail-head {
-  display: flex; justify-content: space-between; align-items: flex-start; gap: 10px;
-  position: sticky; top: 0; z-index: 1; margin: 0 -16px 10px; padding: 14px 16px 10px;
-  background: var(--card); border-bottom: 1px solid var(--line);
-  cursor: move; user-select: none; touch-action: none;
+  display: flex; justify-content: space-between; align-items: center; gap: 16px;
+  padding: 14px 24px; background: var(--card); border-bottom: 1px solid var(--line);
 }
 .detail-head > div:first-child { flex: 1; min-width: 0; }
-.detail-close { flex: none; font-size: 20px; line-height: 1; padding: 2px 9px; cursor: pointer; }
-.detail-head h3 { margin: 0; font-size: 20px; font-variant-numeric: tabular-nums; }
+.detail-head .sub { margin: 2px 0 0; }
+.detail-close { flex: none; font-size: 24px; line-height: 1; padding: 4px 12px; cursor: pointer; }
+.detail-head h3 { margin: 0; font-size: 22px; font-variant-numeric: tabular-nums; }
 .detail-fill { text-align: right; }
-.detail-fill strong { display: block; font-size: 22px; line-height: 1; }
+.detail-fill strong { display: block; font-size: 24px; line-height: 1; }
 .detail-fill span { font-size: 11px; color: var(--ink-soft); }
-.detail-3d { height: 240px; border-radius: 10px; overflow: hidden; }
-.detail .hint { border-top: 0; padding: 6px 0 10px; }
+.detail-body {
+  flex: 1; min-height: 0;
+  display: grid; grid-template-columns: minmax(0, 1fr) 420px; gap: 16px; padding: 16px 24px 20px;
+}
+.detail-view { display: flex; flex-direction: column; min-height: 0; }
+.detail-3d { flex: 1; min-height: 240px; border-radius: 12px; overflow: hidden; }
+.detail .hint { border-top: 0; padding: 8px 0 0; }
+.detail-list {
+  overflow: auto; background: var(--card); border: 1px solid var(--line);
+  border-radius: var(--radius); padding: 8px 12px;
+}
 #dTable { display: block; overflow-x: auto; }
 #dTable .sku-cell { width: 100%; }
 #dTable .sku-cell b { display: block; overflow-wrap: anywhere; }
@@ -503,6 +511,8 @@ h2, h3 { letter-spacing: -.01em; }
 /* ---- narrow screens ---- */
 
 @media (max-width: 1180px) {
+  .detail-body { grid-template-columns: 1fr; grid-template-rows: minmax(260px, 1fr) auto; overflow: auto; }
+  .detail-list { overflow: visible; }
   .rules-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
 
@@ -513,7 +523,7 @@ h2, h3 { letter-spacing: -.01em; }
   .kpis, .kpis.compact { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .rules-grid { grid-template-columns: 1fr; }
   .dash-tools input[type="search"] { width: 100%; }
-  .detail { left: 8px !important; right: 8px; top: auto !important; bottom: 8px; width: auto; max-width: none; max-height: 70vh; }
-  .detail-head { cursor: default; }
+  .detail-head { padding: 10px 12px; }
+  .detail-body { padding: 10px 12px; }
   #page-racks, #page-import { padding: 12px; }
 }
