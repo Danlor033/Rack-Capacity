@@ -35,8 +35,9 @@ a Tier, Category, SKU code, Sold per day, Quantity, Length, Width, Height
 - **+ Add SKU** opens a form. SKU code and category are required, and a code
   already in the list is refused. The category box starts on the category
   being shown, and suggests the ones that exist.
-- **Removing** a SKU is the **×** at the end of its row, after a
-  confirmation. It cannot be undone.
+- **Removing** a SKU is not possible from the page.
+- **Shelves.** Each category button, and the top of its window, says how
+  many shelves the category takes; the *Shelves* column says it per SKU.
 - **Editing.** *L*, *W*, *H* and *Qty per box* are edited in place. *Sold
   per day* and *Quantity* are shown but not editable; they are set when the
   SKU is added. A change is saved the moment it is committed (Enter,
@@ -66,8 +67,15 @@ they need -- and slices from different SKUs sit side by side. Nothing is
 stacked on, or hidden behind, another SKU: every SKU on a shelf faces the
 aisle.
 
-These rules, set on the dashboard and saved with the sheet so every PC sees
-the same racks:
+These rules are saved with the SKU list, so every PC sees the same racks.
+Only **Days of stock in 4KB** is on the page (beside **+ Add SKU**). The
+*How shelves are chosen* box was taken off the page on 2026-10-29, and the
+rules saved then still apply: sold per day by category (one category per
+row), highest column first, one SKU per shelf, any way up, tiers in the
+order Tier 1, Tier 2, Tier 3, GWP, New SKU, Discontinue. Changing one now
+means editing `rules` on the newest row of `rack_imports` in Supabase.
+
+The choices each rule has:
 
 | Rule | Choices |
 | --- | --- |

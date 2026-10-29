@@ -16,17 +16,15 @@ const Dashboard = (function () {
     search: $("dashSearch"), colorBy: $("dashColor"), exportBtn: $("dashExport"),
     kShelves: $("kShelves"), kBoxes: $("kBoxes"), kMiss: $("kMiss"), kMissWrap: $("kMissWrap"),
     kSkus: $("kSkus"), kFill: $("kFill"),
-    rulesSummary: $("rulesSummary"),
-    ruleOrder: $("ruleOrder"), ruleFill: $("ruleFill"), ruleMix: $("ruleMix"), ruleTurn: $("ruleTurn"),
     map: $("rackMap"), mapReset: $("mapReset"),
     detail: $("detail"), detailClose: $("detailClose"),
     rowGap: $("rowGap"), rowGapText: $("rowGapText"),
     dLabel: $("dLabel"), dWhere: $("dWhere"), dCanvas: $("dCanvas"), dTable: $("dTable"),
     skuFilter: $("skuFilter"), skuTable: $("skuTable"),
-    tierList: $("tierList"), gap: $("dataGap"), gapText: $("dataGapText"), gapShow: $("dataGapShow"),
+    gap: $("dataGap"), gapText: $("dataGapText"), gapShow: $("dataGapShow"),
     ruleDays: $("ruleDays"), skuStatus: $("skuStatus"),
     catList: $("catList"), catHint: $("catHint"), skuAdd: $("skuAdd"),
-    catModal: $("catModal"), catTitle: $("catTitle"), catClose: $("catClose"), catAdd: $("catAdd"), catBody: $("catBody"),
+    catStats: $("catStats"), catModal: $("catModal"), catTitle: $("catTitle"), catClose: $("catClose"), catAdd: $("catAdd"), catBody: $("catBody"),
     skuDialog: $("skuDialog"), skuForm: $("skuForm"), skuFormError: $("skuFormError"),
     skuCancel: $("skuCancel"), catOptions: $("catOptions"), tierOptions: $("tierOptions"),
   };
@@ -93,10 +91,6 @@ const Dashboard = (function () {
     el.empty.hidden = true;
     el.dash.hidden = false;
     state.rules = Object.assign({}, Allocate.DEFAULT_RULES, (state.data.import && state.data.import.rules) || {});
-    el.ruleOrder.value = state.rules.order;
-    el.ruleFill.value = state.rules.fill;
-    el.ruleMix.value = state.rules.mix;
-    el.ruleTurn.value = state.rules.turn;
     el.ruleDays.value = state.rules.days;
 
     buildColors();
@@ -112,7 +106,6 @@ const Dashboard = (function () {
 
   function render() {
     renderKpis();
-    renderRules();
     renderMap();
     renderDetail();
     renderCategories();
@@ -163,31 +156,6 @@ const Dashboard = (function () {
     } else {
       el.rowGap.hidden = true;
     }
-  }
-
-  function renderRules() {
-    const pick = (sel) => sel.options[sel.selectedIndex].text;
-    const skip = state.rules.skipTiers || [];
-    el.rulesSummary.textContent = "— " + [
-      state.rules.days + " days of stock",
-      state.alloc.tiers.filter((t) => skip.indexOf(t) < 0).map((t) => t || "(no tier)").join(" › "),
-      pick(el.ruleMix).toLowerCase(),
-    ].join(", ");
-
-    const count = new Map();
-    for (const sku of state.data.skus) count.set(sku.tier || "", (count.get(sku.tier || "") || 0) + 1);
-    const tiers = state.alloc.tiers;
-    el.tierList.innerHTML = tiers.map(function (t, i) {
-      const off = skip.indexOf(t) >= 0;
-      return '<li data-tier="' + esc(t) + '"' + (off ? ' class="off"' : "") + ">" +
-        '<span class="rank">' + (i + 1) + "</span>" +
-        '<span class="name">' + (t ? esc(t) : '<em class="sub">(no tier)</em>') + "</span>" +
-        '<span class="sub cnt">' + (count.get(t) || 0) + " SKUs</span>" +
-        '<label class="give"><input type="checkbox"' + (off ? "" : " checked") + "> gets shelves</label>" +
-        '<button type="button" class="ghost small" data-move="-1"' + (i === 0 ? " disabled" : "") + ' title="Better shelves">↑</button>' +
-        '<button type="button" class="ghost small" data-move="1"' + (i === tiers.length - 1 ? " disabled" : "") + ' title="Worse shelves">↓</button>' +
-        "</li>";
-    }).join("");
   }
 
   function matches(rec, label) {
@@ -354,7 +322,7 @@ const Dashboard = (function () {
   const needsAttention = (r) => ATTENTION.indexOf(r.problem) >= 0;
 
   // A row's cells that are worked out rather than typed: needed, boxes,
-  // placed, no shelf, per shelf, locations.
+  // placed, no shelf, per shelf, shelves taken, locations.
   function workedOut(r) {
     const where = r.spots.map((p) => '<a href="#" data-loc="' + p.label + '">' + p.label + "</a>" +
       (p.boxes ? ' <span class="sub">\u00d7' + p.boxes + "</span>" : "")).join(", ");
@@ -366,6 +334,7 @@ const Dashboard = (function () {
       fmt(r.placed),
       r.unplaced ? fmt(r.unplaced) : "",
       r.perShelf ? fmt(r.perShelf) : "",
+      r.spots.length ? fmt(r.spots.length) : "",
       where + note,
     ];
   }
@@ -374,8 +343,7 @@ const Dashboard = (function () {
   // brought up to date and nothing else is touched. Rebuilding the whole
   // list -- some 1,500 inputs -- stalled every edit and replaced the box the
   // cursor had just moved on to.
-  const WORKED_CELLS = [4 + EDITABLE.length, 5 + EDITABLE.length, 6 + EDITABLE.length,
-    7 + EDITABLE.length, 8 + EDITABLE.length, 9 + EDITABLE.length];
+  const WORKED_CELLS = [4, 5, 6, 7, 8, 9, 10].map((c) => c + EDITABLE.length);
   function updateSkus() {
     const body = el.skuTable.tBodies[0];
     if (!body) return;
@@ -400,6 +368,37 @@ const Dashboard = (function () {
 
   // One button per category, the biggest first -- the same order the rows
   // are handed out in -- with how many SKUs it has.
+  // What one category (or ALL) takes on the racks: shelves holding any of
+  // its SKUs, which rows those are in, and the boxes placed.
+  function categoryUse(key) {
+    const skus = state.data.skus;
+    const rows = new Set();
+    let shelves = 0;
+    for (const rec of state.alloc.locations.values()) {
+      if (key === ALL || rec.sections.some((sec) => (skus[sec.sku].category || "") === key)) {
+        shelves++;
+        rows.add(rec.row);
+      }
+    }
+    const results = state.alloc.results.filter((r) => key === ALL || (r.sku.category || "") === key);
+    return {
+      skus: results.length,
+      shelves: shelves,
+      rows: [...rows].sort((a, b) => a - b),
+      boxes: results.reduce((n, r) => n + r.placed, 0),
+    };
+  }
+
+  function renderCatStats() {
+    if (state.category === null) return;
+    const u = categoryUse(state.category);
+    const stat = (name, value) => "<div><dt>" + name + "</dt><dd>" + value + "</dd></div>";
+    el.catStats.innerHTML = stat("SKUs", fmt(u.skus)) +
+      stat("Shelves", fmt(u.shelves) + ' <span class="sub">of ' + Layout.count + "</span>") +
+      stat("Boxes placed", fmt(u.boxes)) +
+      stat(u.rows.length === 1 ? "Row" : "Rows", u.rows.length ? u.rows.join(", ") : "\u2014");
+  }
+
   function renderCategories() {
     const by = new Map();
     for (const r of state.alloc.results) {
@@ -409,15 +408,19 @@ const Dashboard = (function () {
       if (needsAttention(r)) e.attention++;
       by.set(c, e);
     }
+    for (const e of by.values()) e.shelves = categoryUse(e.name).shelves;
     const cats = [...by.values()].sort((a, b) => b.skus - a.skus || Allocate.compareText(a.name, b.name));
     if (state.category !== null && state.category !== ALL && !by.has(state.category)) state.category = null;
 
     const button = (key, name, e) => '<button type="button" class="cat-btn' + (state.category === key ? " on" : "") +
       '" data-cat="' + esc(key) + '"><b>' + esc(name) + '</b><span class="cnt">' + e.skus.toLocaleString() +
-      " SKU" + (e.skus === 1 ? "" : "s") +
+      " SKU" + (e.skus === 1 ? "" : "s") + " · " + e.shelves.toLocaleString() + " shel" + (e.shelves === 1 ? "f" : "ves") +
       (e.attention ? ' · <span class="warn">' + e.attention + " need" + (e.attention === 1 ? "s" : "") + " attention</span>" : "") +
       "</span></button>";
-    const total = { skus: state.alloc.results.length, attention: state.alloc.results.filter(needsAttention).length };
+    const total = {
+      skus: state.alloc.results.length, shelves: state.alloc.locations.size,
+      attention: state.alloc.results.filter(needsAttention).length,
+    };
     el.catList.innerHTML = (cats.length > 1 ? button(ALL, "All categories", total) : "") +
       cats.map((e) => button(e.name, catName(e.name), e)).join("");
     el.catOptions.innerHTML = cats.filter((e) => e.name).map((e) => '<option value="' + esc(e.name) + '">').join("");
@@ -433,6 +436,7 @@ const Dashboard = (function () {
     document.body.classList.toggle("cat-open", picked !== null);
     if (picked === null) { el.skuTable.innerHTML = ""; return; }
     el.catTitle.textContent = picked === ALL ? "All categories" : catName(picked);
+    renderCatStats();
 
     const filter = el.skuFilter.value;
     // Best seller first. The order is set when the list is drawn, and an
@@ -451,11 +455,15 @@ const Dashboard = (function () {
       });
 
     const days = state.rules.days;
-    let html = "<thead><tr><th>#</th><th>Tier</th><th>Category</th><th>SKU</th>" +
-      EDITABLE.map((f) => '<th class="num' + (f.fixed ? "" : " edit-col") + '">' + f.label + "</th>").join("") +
+    // Column widths in px, in table order; Locations takes what is left.
+    const WIDTHS = [40, 88, 100, 270, 76, 80, 62, 62, 62, 80, 92, 58, 60, 66, 70, 62, 0];
+    let html = "<colgroup>" + WIDTHS.map((w) => (w ? '<col style="width:' + w + 'px">' : "<col>")).join("") + "</colgroup>" +
+      "<thead><tr><th>#</th><th>Tier</th><th>Category</th><th>SKU</th>" +
+      EDITABLE.map((f) => '<th class="num">' + f.label + "</th>").join("") +
       '<th class="num" title="Sold per day \u00d7 ' + days + '">Needed (' + days + " d)</th>" +
       '<th class="num" title="Needed \u00f7 Qty per box, rounded up">Boxes</th><th class="num">Placed</th>' +
-      '<th class="num">No shelf</th><th class="num">Per shelf</th><th>Locations</th><th></th></tr></thead><tbody>';
+      '<th class="num">No shelf</th><th class="num">Per shelf</th>' +
+      '<th class="num" title="How many shelves this SKU takes">Shelves</th><th>Locations</th></tr></thead><tbody>';
     // # counts down this list from 1, whatever is open.
     rows.forEach(function (r, i) {
       const s = r.sku;
@@ -469,12 +477,13 @@ const Dashboard = (function () {
       }).join("");
       html += '<tr data-sku="' + r.index + '"' + (needsAttention(r) ? ' class="short"' : "") + ">" +
         '<td class="sub">' + (i + 1) + "</td>" +
-        "<td>" + esc(s.tier) + "</td><td>" + esc(s.category) + '</td><td class="sku-name"><b>' + esc(s.sku) + "</b></td>" +
+        '<td title="' + esc(s.tier) + '">' + esc(s.tier) + '</td><td title="' + esc(s.category) + '">' + esc(s.category) +
+        '</td><td class="sku-name" title="' + esc(s.sku) + '"><b>' + esc(s.sku) + "</b></td>" +
         inputs +
         '<td class="num">' + worked[0] + '</td><td class="num">' + worked[1] + "</td>" +
         '<td class="num">' + worked[2] + '</td><td class="num">' + worked[3] + "</td>" +
-        '<td class="num">' + worked[4] + "</td><td>" + worked[5] + "</td>" +
-        '<td><button type="button" class="ghost small row-del" data-del="' + r.index + '" title="Remove this SKU">&times;</button></td></tr>';
+        '<td class="num">' + worked[4] + '</td><td class="num">' + worked[5] + "</td>" +
+        '<td class="locs">' + worked[6] + "</td></tr>";
     });
     if (!rows.length) html += '<tr><td colspan="17" class="sub">Nothing to show.</td></tr>';
     el.skuTable.innerHTML = html + "</tbody>";
@@ -517,8 +526,6 @@ const Dashboard = (function () {
   });
 
   el.skuTable.addEventListener("click", function (e) {
-    const del = e.target.closest("button[data-del]");
-    if (del) { removeSku(Number(del.dataset.del)); return; }
     const link = e.target.closest("a[data-loc]");
     if (link) {
       e.preventDefault();
@@ -595,6 +602,8 @@ const Dashboard = (function () {
       renderKpis();
       renderMap();
       renderDetail();
+      renderCategories();
+      renderCatStats();
       updateSkus();
     }, 0);
   }
@@ -631,13 +640,13 @@ const Dashboard = (function () {
   });
   el.skuFilter.addEventListener("change", renderSkus);
 
-  // A rule change re-lays the racks at once and is saved for everyone.
+  // The days of stock re-lay the racks at once and are saved for everyone.
+  // The other rules are no longer on the page; the ones saved with the
+  // list still apply.
   let saveTimer = null;
   function ruleChanged() {
     const days = Math.round(Number(el.ruleDays.value));
     state.rules = Object.assign({}, state.rules, {
-      order: el.ruleOrder.value, fill: el.ruleFill.value,
-      mix: el.ruleMix.value, turn: el.ruleTurn.value,
       days: days >= 1 && days <= 365 ? days : state.rules.days,
     });
     el.ruleDays.value = state.rules.days;
@@ -650,29 +659,7 @@ const Dashboard = (function () {
         .catch(function (e) { console.error(e); alert("The new rules could not be saved: " + e.message); });
     }, 400);
   }
-  [el.ruleOrder, el.ruleFill, el.ruleMix, el.ruleTurn, el.ruleDays].forEach((s) => s.addEventListener("change", ruleChanged));
-
-  // Reordering a tier, or taking it off the racks altogether.
-  el.tierList.addEventListener("click", function (e) {
-    const btn = e.target.closest("button[data-move]");
-    if (!btn) return;
-    const tiers = state.alloc.tiers.slice();
-    const i = tiers.indexOf(btn.closest("li").dataset.tier);
-    const j = i + Number(btn.dataset.move);
-    if (i < 0 || j < 0 || j >= tiers.length) return;
-    [tiers[i], tiers[j]] = [tiers[j], tiers[i]];
-    state.rules.tiers = tiers;
-    ruleChanged();
-  });
-  el.tierList.addEventListener("change", function (e) {
-    if (e.target.type !== "checkbox") return;
-    const tier = e.target.closest("li").dataset.tier;
-    const skip = (state.rules.skipTiers || []).filter((t) => t !== tier);
-    if (!e.target.checked) skip.push(tier);
-    state.rules.skipTiers = skip;
-    state.rules.tiers = state.alloc.tiers.slice();
-    ruleChanged();
-  });
+  el.ruleDays.addEventListener("change", ruleChanged);
 
   function openCategory(key, filter) {
     state.category = key;
@@ -771,26 +758,6 @@ const Dashboard = (function () {
       save.disabled = false;
     }
   });
-
-  async function removeSku(index) {
-    const s = state.data.skus[index];
-    if (!s || !confirm("Remove " + s.sku + " (" + catName(s.category) + ")? This cannot be undone.")) return;
-    failed = null;
-    saving++;
-    status();
-    try {
-      await DB.imports.removeSku(s.id);
-      state.data.skus.splice(state.data.skus.indexOf(s), 1);
-      if (state.selected && !state.alloc.locations.has(state.selected)) state.selected = null;
-      relayout();
-    } catch (err) {
-      console.error(err);
-      failed = "Could not remove " + s.sku + ": " + err.message;
-    } finally {
-      saving--;
-      status();
-    }
-  }
 
   el.exportBtn.addEventListener("click", function () {
     if (!Excel.available()) { alert("The spreadsheet library did not load, so the list cannot be written."); return; }

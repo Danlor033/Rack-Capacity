@@ -501,13 +501,28 @@ body.detail-open, body.cat-open { overflow: hidden; }
 .tbl tr:hover input.cell-in { border-color: var(--line); background: var(--card); }
 .tbl input.cell-in:focus { outline: 2px solid var(--accent); outline-offset: -1px; background: var(--card); }
 .tbl input.cell-in.want { border-color: var(--warn); border-style: dashed; background: color-mix(in srgb, var(--warn) 8%, transparent); }
-.tbl td.edit-col { padding-top: 3px; padding-bottom: 3px; }
+/* The input's text lines up with the plain numbers and the headings: the
+   cell gives up its own padding and the input carries the 8px instead. */
+.tbl td.edit-col { padding: 3px 1px; }
+.tbl td.edit-col input.cell-in { width: 100%; padding: 3px 6px; }
 .tbl td.sku-name { white-space: nowrap; }
 .sku-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin-bottom: 12px; }
 .sku-head .sub { margin: 2px 0 0; }
 .sku-head h3 { margin: 0; font-size: 18px; }
 .sku-tools { display: flex; gap: 8px; align-items: center; }
 .sku-tools select { width: auto; }
+.days-field { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--ink-soft); white-space: nowrap; }
+.days-field input { width: 72px; }
+
+/* The SKU list in the category window: fixed columns, so every heading
+   sits exactly over its numbers and no row is taller than another. */
+#skuTable { table-layout: fixed; min-width: 1500px; }
+#skuTable col:last-child { min-width: 180px; }
+#skuTable td { vertical-align: middle; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+#skuTable th.num { text-align: right; }
+#skuTable td.locs { white-space: normal; }
+.cat-stats { margin: 6px 0 4px; gap: 22px; }
+.cat-stats dd { font-size: 16px; }
 
 /* One button per category: its name, how many SKUs it has, and how many of
    those need something filled in. */

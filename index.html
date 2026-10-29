@@ -4,7 +4,7 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>Rack Planner</title>
-<link rel="stylesheet" href="style.css?v=2026-10-29m" />
+<link rel="stylesheet" href="style.css?v=2026-10-29n" />
 </head>
 <body>
 
@@ -54,7 +54,12 @@
           <h3>SKU</h3>
           <p class="sub" id="catHint">Click a category to see and edit its SKUs, best seller first.</p>
         </div>
-        <button class="primary" id="skuAdd" type="button">+ Add SKU</button>
+        <div class="sku-tools">
+          <label class="days-field" title="Needed qty = sold per day × these days">Days of stock in 4KB
+            <input id="ruleDays" type="number" min="1" max="365" step="1" value="15" />
+          </label>
+          <button class="primary" id="skuAdd" type="button">+ Add SKU</button>
+        </div>
       </div>
       <div class="cat-list" id="catList"></div>
     </div>
@@ -67,6 +72,7 @@
           <div class="detail-title">
             <span class="detail-cap">Category</span>
             <h3 id="catTitle">&nbsp;</h3>
+            <dl class="detail-stats cat-stats" id="catStats"></dl>
             <p class="save-status sub" id="skuStatus">Edit L, W, H or Qty / box in place &mdash; changes are saved for everyone</p>
           </div>
           <div class="sku-tools">
@@ -98,50 +104,6 @@
       <button class="ghost small" id="dataGapShow" type="button">Show them</button>
     </div>
 
-    <details class="rules card" id="rulesBox">
-      <summary>How shelves are chosen <span class="sub" id="rulesSummary"></span></summary>
-      <div class="rules-grid">
-        <label class="field"><span>Days of stock in 4KB</span>
-          <input id="ruleDays" type="number" min="1" max="365" step="1" value="15" />
-        </label>
-        <label class="field"><span>Who goes first</span>
-          <select id="ruleOrder">
-            <option value="tier">Tier, then sold per day</option>
-            <option value="category">Category, then tier</option>
-            <option value="sales">Sold per day only</option>
-            <option value="categorySales">Sold per day by category (most SKUs on Row 1, one category per row)</option>
-          </select>
-        </label>
-        <label class="field"><span>Best shelves</span>
-          <select id="ruleFill">
-            <option value="layer">Layer 1 everywhere, then 2, then 3</option>
-            <option value="row">Row by row, lowest layer first</option>
-            <option value="label">In label order (1-1-1, 1-1-2 &hellip;)</option>
-            <option value="colDesc">Highest column first, lowest layer first</option>
-          </select>
-        </label>
-        <label class="field"><span>Sharing a shelf</span>
-          <select id="ruleMix">
-            <option value="category">Only with the same category</option>
-            <option value="any">With any SKU</option>
-            <option value="one">Never &mdash; one SKU per shelf</option>
-          </select>
-        </label>
-        <label class="field"><span>Turning boxes</span>
-          <select id="ruleTurn">
-            <option value="any">Any way up</option>
-            <option value="upright">Upright only</option>
-          </select>
-        </label>
-      </div>
-      <div class="tier-rank">
-        <span class="tier-title">Tier order <span class="sub">&mdash; earlier tiers get the better shelves</span></span>
-        <ol id="tierList"></ol>
-      </div>
-      <p class="sub rules-note">Each SKU fills whole shelves first. Its leftover boxes get a slice of a
-        shelf, front to back and full height, so every SKU on a shelf faces the aisle.
-        Changes are saved for everyone.</p>
-    </details>
 
     <div class="banner" id="rowGap" hidden>
       <p id="rowGapText"></p>
@@ -308,16 +270,16 @@
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-<script src="config.js?v=2026-10-29m"></script>
-<script src="packer.js?v=2026-10-29m"></script>
-<script src="layout.js?v=2026-10-29m"></script>
-<script src="allocate.js?v=2026-10-29m"></script>
-<script src="db.js?v=2026-10-29m"></script>
-<script src="excel.js?v=2026-10-29m"></script>
-<script src="view3d.js?v=2026-10-29m"></script>
-<script src="view2d.js?v=2026-10-29m"></script>
-<script src="app.js?v=2026-10-29m"></script>
-<script src="dashboard.js?v=2026-10-29m"></script>
-<script src="pages.js?v=2026-10-29m"></script>
+<script src="config.js?v=2026-10-29n"></script>
+<script src="packer.js?v=2026-10-29n"></script>
+<script src="layout.js?v=2026-10-29n"></script>
+<script src="allocate.js?v=2026-10-29n"></script>
+<script src="db.js?v=2026-10-29n"></script>
+<script src="excel.js?v=2026-10-29n"></script>
+<script src="view3d.js?v=2026-10-29n"></script>
+<script src="view2d.js?v=2026-10-29n"></script>
+<script src="app.js?v=2026-10-29n"></script>
+<script src="dashboard.js?v=2026-10-29n"></script>
+<script src="pages.js?v=2026-10-29n"></script>
 </body>
 </html>
