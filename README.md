@@ -160,7 +160,7 @@ always checked for a newer copy.
 
 ### Online: Cloudflare Pages
 
-The same files are also published at <https://rack-planner.pages.dev>. Both
+The same files are also published on Cloudflare Pages (see `deploy.cmd` for the project name). Both
 copies use the same Supabase project, so they show the same racks and sheet.
 
 To publish a change, run `deploy.cmd` from this folder. It copies only what
@@ -184,8 +184,7 @@ and point the app at the project:
 1. Run [`sql/schema.sql`](sql/schema.sql) in the Supabase SQL editor.
 2. Put that project's URL and **publishable** key into `config.js`.
 
-The app notices by itself — the line under the title says which of the two it
-is using. Note that the tables are reachable with the publishable key by
+The app notices by itself. Note that the tables are reachable with the publishable key by
 anyone who can open the page; `sql/schema.sql` explains the trade and what to
 change if the app ever gains a login.
 

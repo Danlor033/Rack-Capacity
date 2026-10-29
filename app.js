@@ -338,10 +338,6 @@
     document.documentElement.setAttribute("data-theme", theme || "light");
     el.themeBtn.textContent = theme === "dark" ? "Light" : "Dark";
 
-    el.dbStatus.textContent = DB.configured()
-      ? "Racks and box sizes shared through Supabase"
-      : "Racks and box sizes saved in this browser";
-
     if (View3D.available()) {
       state.view3d = View3D.create(document.getElementById("c3d"));
       state.view3d.frame(state.rack);

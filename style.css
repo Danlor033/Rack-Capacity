@@ -51,6 +51,8 @@ body {
 }
 
 .brand { display: flex; align-items: center; gap: 12px; }
+/* Only says anything when the saved lists cannot be reached. */
+#dbStatus:empty { display: none; }
 
 .mark {
   width: 30px; height: 30px; border-radius: 8px; flex: none;
