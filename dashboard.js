@@ -345,6 +345,54 @@ const Dashboard = (function () {
     return false;
   }
 
+  const needsAttention = (r) => ATTENTION.indexOf(r.problem) >= 0;
+
+  // A row's cells that are worked out rather than typed: priority, needed,
+  // boxes, placed, no shelf, per shelf, locations.
+  function workedOut(r) {
+    const where = r.spots.map((p) => '<a href="#" data-loc="' + p.label + '">' + p.label + "</a>" +
+      (p.boxes ? ' <span class="sub">\u00d7' + p.boxes + "</span>" : "")).join(", ");
+    const note = r.problem && r.problem !== "none-needed"
+      ? ' <span class="tag' + (needsAttention(r) ? " bad" : "") + '">' + WHY[r.problem] + "</span>" : "";
+    return [
+      String(r.order + 1),
+      fmt(r.needed),
+      "<b>" + (r.problem === "no-count" ? "?" : fmt(r.wanted)) + "</b>",
+      fmt(r.placed),
+      r.unplaced ? fmt(r.unplaced) : "",
+      r.perShelf ? fmt(r.perShelf) : "",
+      where + note,
+    ];
+  }
+
+  // After an edit, the rows already on screen get their worked-out cells
+  // brought up to date and nothing else is touched. Rebuilding the whole
+  // list -- some 1,500 inputs -- stalled every edit and replaced the box the
+  // cursor had just moved on to.
+  const WORKED_CELLS = [0, 4 + EDITABLE.length, 5 + EDITABLE.length, 6 + EDITABLE.length,
+    7 + EDITABLE.length, 8 + EDITABLE.length, 9 + EDITABLE.length];
+  function updateSkus() {
+    const body = el.skuTable.tBodies[0];
+    if (!body) return;
+    for (const tr of body.rows) {
+      if (tr.dataset.sku === undefined) continue;
+      const r = state.alloc.results[Number(tr.dataset.sku)];
+      const worked = workedOut(r);
+      WORKED_CELLS.forEach(function (c, i) {
+        const td = tr.cells[c];
+        if (td && td.innerHTML !== worked[i]) td.innerHTML = worked[i];
+      });
+      tr.classList.toggle("short", needsAttention(r));
+      for (const input of tr.querySelectorAll("input[data-field]")) {
+        input.classList.toggle("want", !!wanting(r, input.dataset.field));
+        // A save that failed puts the old number back.
+        const v = r.sku[input.dataset.field];
+        const shown = v === null || v === undefined ? "" : String(v);
+        if (input !== document.activeElement && input.value !== shown) input.value = shown;
+      }
+    }
+  }
+
   function renderSkus() {
     const filter = el.skuFilter.value;
     // Sheet order, not priority order: a row must not jump away while
@@ -367,26 +415,20 @@ const Dashboard = (function () {
       '<th class="num">No shelf</th><th class="num">Per shelf</th><th>Locations</th></tr></thead><tbody>';
     for (const r of rows) {
       const s = r.sku;
-      const where = r.spots.map((p) => '<a href="#" data-loc="' + p.label + '">' + p.label + "</a>" +
-        (p.boxes ? ' <span class="sub">\u00d7' + p.boxes + "</span>" : "")).join(", ");
-      const attention = ATTENTION.indexOf(r.problem) >= 0;
-      const note = r.problem && r.problem !== "none-needed"
-        ? ' <span class="tag' + (attention ? " bad" : "") + '">' + WHY[r.problem] + "</span>" : "";
+      const worked = workedOut(r);
       const inputs = EDITABLE.map(function (f) {
         const v = s[f.key];
         return '<td class="num edit-col"><input class="cell-in' + (wanting(r, f.key) ? " want" : "") +
           '" type="number" min="0" step="any" inputmode="decimal" data-sku="' + r.index +
           '" data-field="' + f.key + '" value="' + (v === null || v === undefined ? "" : v) + '"></td>';
       }).join("");
-      html += '<tr data-sku="' + r.index + '"' + (attention ? ' class="short"' : "") + ">" +
-        '<td class="sub">' + (r.order + 1) + "</td>" +
+      html += '<tr data-sku="' + r.index + '"' + (needsAttention(r) ? ' class="short"' : "") + ">" +
+        '<td class="sub">' + worked[0] + "</td>" +
         "<td>" + esc(s.tier) + "</td><td>" + esc(s.category) + '</td><td class="sku-name"><b>' + esc(s.sku) + "</b></td>" +
         inputs +
-        '<td class="num">' + fmt(r.needed) + "</td>" +
-        '<td class="num"><b>' + (r.problem === "no-count" ? "?" : fmt(r.wanted)) + "</b></td>" +
-        '<td class="num">' + fmt(r.placed) + '</td><td class="num">' + (r.unplaced ? fmt(r.unplaced) : "") + "</td>" +
-        '<td class="num">' + (r.perShelf ? fmt(r.perShelf) : "") + "</td>" +
-        "<td>" + where + note + "</td></tr>";
+        '<td class="num">' + worked[1] + '</td><td class="num">' + worked[2] + "</td>" +
+        '<td class="num">' + worked[3] + '</td><td class="num">' + worked[4] + "</td>" +
+        '<td class="num">' + worked[5] + "</td><td>" + worked[6] + "</td></tr>";
     }
     if (!rows.length) html += '<tr><td colspan="16" class="sub">Nothing to show.</td></tr>';
     el.skuTable.innerHTML = html + "</tbody>";
@@ -491,19 +533,17 @@ const Dashboard = (function () {
     refresh();
   });
 
-  // Lay out again and redraw, putting the cursor back where it was -- the
-  // table is rebuilt, so the box being typed in is a new element.
+  // Lay out again and redraw everything but the SKU list, whose rows only
+  // have their worked-out numbers brought up to date.
   let refreshTimer = null;
   function refresh() {
     clearTimeout(refreshTimer);
     refreshTimer = setTimeout(function () {
-      const a = document.activeElement;
-      const keep = a && a.dataset && a.dataset.field ? { sku: a.dataset.sku, field: a.dataset.field } : null;
-      recompute();
-      if (keep) {
-        const again = el.skuTable.querySelector('input[data-sku="' + keep.sku + '"][data-field="' + keep.field + '"]');
-        if (again) { again.focus(); again.select(); }
-      }
+      state.alloc = Allocate.run(state.data.skus, state.rules);
+      renderKpis();
+      renderMap();
+      renderDetail();
+      updateSkus();
     }, 0);
   }
 
