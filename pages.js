@@ -1,9 +1,9 @@
-// Which page is showing. The address keeps it (#racks, #import, #calc), so a
+// Which page is showing. The address keeps it (#racks, #calc), so a
 // bookmark or a refresh lands where you were.
 const Pages = (function () {
   "use strict";
 
-  const NAMES = ["racks", "import", "calc"];
+  const NAMES = ["racks", "calc"];
 
   function show(name) {
     if (NAMES.indexOf(name) < 0) name = "racks";

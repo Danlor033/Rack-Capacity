@@ -25,6 +25,9 @@ const Dashboard = (function () {
     skuFilter: $("skuFilter"), skuTable: $("skuTable"),
     tierList: $("tierList"), gap: $("dataGap"), gapText: $("dataGapText"), gapShow: $("dataGapShow"),
     ruleDays: $("ruleDays"), skuStatus: $("skuStatus"),
+    catList: $("catList"), catHint: $("catHint"), skuWrap: $("skuWrap"), skuAdd: $("skuAdd"),
+    skuDialog: $("skuDialog"), skuForm: $("skuForm"), skuFormError: $("skuFormError"),
+    skuCancel: $("skuCancel"), catOptions: $("catOptions"), tierOptions: $("tierOptions"),
   };
 
   const state = {
@@ -32,6 +35,7 @@ const Dashboard = (function () {
     rules: Object.assign({}, Allocate.DEFAULT_RULES),
     alloc: null,
     selected: null,    // shelf label
+    category: null,    // the category whose SKUs are listed; ALL for every one
     search: "",
     colors: null,
     view: null,
@@ -79,25 +83,20 @@ const Dashboard = (function () {
 
   // --- loading -------------------------------------------------------------
 
+  const ALL = "__all__";
+
+  // Nothing saved yet is an empty list, not an error: SKUs can be added by
+  // hand from here.
   function load(data) {
-    state.data = data && data.skus && data.skus.length ? data : null;
-    if (!state.data) {
-      el.empty.hidden = false;
-      el.dash.hidden = true;
-      return;
-    }
+    state.data = data && data.skus ? data : { import: null, skus: [] };
     el.empty.hidden = true;
     el.dash.hidden = false;
-    state.rules = Object.assign({}, Allocate.DEFAULT_RULES, state.data.import.rules || {});
+    state.rules = Object.assign({}, Allocate.DEFAULT_RULES, (state.data.import && state.data.import.rules) || {});
     el.ruleOrder.value = state.rules.order;
     el.ruleFill.value = state.rules.fill;
     el.ruleMix.value = state.rules.mix;
     el.ruleTurn.value = state.rules.turn;
     el.ruleDays.value = state.rules.days;
-
-    const when = new Date(state.data.import.imported_at);
-    el.source.textContent = state.data.import.file_name + " · " + state.data.skus.length.toLocaleString() +
-      " SKUs · imported " + when.toLocaleString();
 
     buildColors();
     recompute();
@@ -115,11 +114,16 @@ const Dashboard = (function () {
     renderRules();
     renderMap();
     renderDetail();
+    renderCategories();
     renderSkus();
   }
 
+  function catName(c) { return c || "(no category)"; }
+
   function renderKpis() {
     const s = state.alloc.stats;
+    const cats = new Set(state.data.skus.map((k) => k.category || ""));
+    el.source.textContent = s.skus.toLocaleString() + " SKUs in " + cats.size + " categor" + (cats.size === 1 ? "y" : "ies");
     el.kShelves.textContent = s.shelvesUsed + " / " + s.shelves;
     el.kBoxes.textContent = s.boxesPlaced.toLocaleString() + " / " + s.boxesWanted.toLocaleString();
     el.kMiss.textContent = s.boxesUnplaced.toLocaleString();
@@ -393,12 +397,49 @@ const Dashboard = (function () {
     }
   }
 
+  // One button per category, the biggest first -- the same order the rows
+  // are handed out in -- with how many SKUs it has.
+  function renderCategories() {
+    const by = new Map();
+    for (const r of state.alloc.results) {
+      const c = r.sku.category || "";
+      const e = by.get(c) || { name: c, skus: 0, attention: 0 };
+      e.skus++;
+      if (needsAttention(r)) e.attention++;
+      by.set(c, e);
+    }
+    const cats = [...by.values()].sort((a, b) => b.skus - a.skus || Allocate.compareText(a.name, b.name));
+    if (state.category !== null && state.category !== ALL && !by.has(state.category)) state.category = null;
+
+    const button = (key, name, e) => '<button type="button" class="cat-btn' + (state.category === key ? " on" : "") +
+      '" data-cat="' + esc(key) + '"><b>' + esc(name) + '</b><span class="cnt">' + e.skus.toLocaleString() +
+      " SKU" + (e.skus === 1 ? "" : "s") +
+      (e.attention ? ' · <span class="warn">' + e.attention + " need" + (e.attention === 1 ? "s" : "") + " attention</span>" : "") +
+      "</span></button>";
+    const total = { skus: state.alloc.results.length, attention: state.alloc.results.filter(needsAttention).length };
+    el.catList.innerHTML = (cats.length > 1 ? button(ALL, "All categories", total) : "") +
+      cats.map((e) => button(e.name, catName(e.name), e)).join("");
+    el.catOptions.innerHTML = cats.filter((e) => e.name).map((e) => '<option value="' + esc(e.name) + '">').join("");
+    el.tierOptions.innerHTML = state.alloc.tiers.filter(Boolean).map((t) => '<option value="' + esc(t) + '">').join("");
+  }
+
   function renderSkus() {
+    const picked = state.category;
+    el.skuWrap.hidden = picked === null;
+    el.catHint.hidden = picked !== null;
+    el.catHint.textContent = state.data.skus.length
+      ? "Pick a category to see its SKUs, best seller first."
+      : "No SKUs yet \u2014 add the first one with + Add SKU.";
+    if (picked === null) { el.skuTable.innerHTML = ""; return; }
+
     const filter = el.skuFilter.value;
-    // Sheet order, not priority order: a row must not jump away while
-    // somebody is typing in it. The # column still gives its priority.
-    const rows = state.alloc.results.slice()
-      .sort((a, b) => a.index - b.index)
+    // Best seller first. The order is set when the list is drawn, and an
+    // edit does not redraw it, so a row never jumps away while somebody is
+    // typing in it. The # column gives its priority on the racks.
+    const sold = (r) => (typeof r.sku.soldPerDay === "number" ? r.sku.soldPerDay : -1);
+    const rows = state.alloc.results
+      .filter((r) => picked === ALL || (r.sku.category || "") === picked)
+      .sort((a, b) => sold(b) - sold(a) || Allocate.compareText(a.sku.sku, b.sku.sku))
       .filter(function (r) {
         if (filter === "missing") return ATTENTION.indexOf(r.problem) >= 0;
         if (filter === "nocount") return r.problem === "no-count";
@@ -412,7 +453,7 @@ const Dashboard = (function () {
       EDITABLE.map((f) => '<th class="num edit-col">' + f.label + "</th>").join("") +
       '<th class="num" title="Sold per day \u00d7 ' + days + '">Needed (' + days + " d)</th>" +
       '<th class="num" title="Needed \u00f7 Qty per box, rounded up">Boxes</th><th class="num">Placed</th>' +
-      '<th class="num">No shelf</th><th class="num">Per shelf</th><th>Locations</th></tr></thead><tbody>';
+      '<th class="num">No shelf</th><th class="num">Per shelf</th><th>Locations</th><th></th></tr></thead><tbody>';
     for (const r of rows) {
       const s = r.sku;
       const worked = workedOut(r);
@@ -428,9 +469,10 @@ const Dashboard = (function () {
         inputs +
         '<td class="num">' + worked[1] + '</td><td class="num">' + worked[2] + "</td>" +
         '<td class="num">' + worked[3] + '</td><td class="num">' + worked[4] + "</td>" +
-        '<td class="num">' + worked[5] + "</td><td>" + worked[6] + "</td></tr>";
+        '<td class="num">' + worked[5] + "</td><td>" + worked[6] + "</td>" +
+        '<td><button type="button" class="ghost small row-del" data-del="' + r.index + '" title="Remove this SKU">&times;</button></td></tr>';
     }
-    if (!rows.length) html += '<tr><td colspan="16" class="sub">Nothing to show.</td></tr>';
+    if (!rows.length) html += '<tr><td colspan="17" class="sub">Nothing to show.</td></tr>';
     el.skuTable.innerHTML = html + "</tbody>";
   }
 
@@ -467,6 +509,8 @@ const Dashboard = (function () {
   });
 
   el.skuTable.addEventListener("click", function (e) {
+    const del = e.target.closest("button[data-del]");
+    if (del) { removeSku(Number(del.dataset.del)); return; }
     const link = e.target.closest("a[data-loc]");
     if (link) {
       e.preventDefault();
@@ -580,7 +624,8 @@ const Dashboard = (function () {
     recompute();
     clearTimeout(saveTimer);
     saveTimer = setTimeout(function () {
-      DB.imports.setRules(state.data.import.id, state.rules)
+      ensureImport()
+        .then((head) => DB.imports.setRules(head.id, state.rules))
         .then(function () { state.data.import.rules = state.rules; })
         .catch(function (e) { console.error(e); alert("The new rules could not be saved: " + e.message); });
     }, 400);
@@ -610,10 +655,110 @@ const Dashboard = (function () {
   });
 
   el.gapShow.addEventListener("click", function () {
+    state.category = ALL;
     el.skuFilter.value = "nocount";
+    renderCategories();
     renderSkus();
-    el.skuTable.scrollIntoView({ block: "start", behavior: "smooth" });
+    el.catList.scrollIntoView({ block: "start", behavior: "smooth" });
   });
+
+  el.catList.addEventListener("click", function (e) {
+    const btn = e.target.closest("button[data-cat]");
+    if (!btn) return;
+    state.category = btn.dataset.cat;
+    renderCategories();
+    renderSkus();
+  });
+
+  // --- adding and removing SKUs ---------------------------------------------
+
+  // The list SKUs belong to. One is made the first time it is needed.
+  async function ensureImport() {
+    if (!state.data.import) state.data.import = await DB.imports.create(state.rules);
+    return state.data.import;
+  }
+
+  function relayout() {
+    buildColors();
+    recompute();
+  }
+
+  const NUMBERS = ["soldPerDay", "quantity", "length", "width", "height", "qtyPerBox"];
+
+  el.skuAdd.addEventListener("click", function () {
+    el.skuForm.reset();
+    el.skuFormError.hidden = true;
+    if (state.category !== null && state.category !== ALL) el.skuForm.querySelector('[name="category"]').value = state.category;
+    el.skuDialog.showModal();
+    el.skuForm.querySelector('[name="sku"]').focus();
+  });
+  el.skuCancel.addEventListener("click", function () { el.skuDialog.close(); });
+
+  el.skuForm.addEventListener("submit", async function (e) {
+    e.preventDefault();
+    // By name through querySelector: elements.length is the form's own
+    // count of its controls, not the Length box.
+    const box = (name) => el.skuForm.querySelector('[name="' + name + '"]');
+    const fail = function (msg, field) {
+      el.skuFormError.textContent = msg;
+      el.skuFormError.hidden = false;
+      if (field) box(field).focus();
+    };
+    const sku = { sku: box("sku").value.trim(), category: box("category").value.trim(), tier: box("tier").value.trim() };
+    if (!sku.sku) return fail("Give the SKU code.", "sku");
+    if (!sku.category) return fail("Give the category.", "category");
+    const taken = state.data.skus.find((s) => String(s.sku).toLowerCase() === sku.sku.toLowerCase());
+    if (taken) return fail(sku.sku + " is already in the list, under " + catName(taken.category) + ".", "sku");
+    for (const k of NUMBERS) {
+      const raw = box(k).value.trim();
+      const v = raw === "" ? null : Number(raw);
+      if (v !== null && !(isFinite(v) && v >= 0)) return fail("That is not a number.", k);
+      sku[k] = v;
+    }
+
+    const save = document.getElementById("skuSave");
+    save.disabled = true;
+    try {
+      const head = await ensureImport();
+      const line = state.data.skus.reduce((n, s) => Math.max(n, Number(s.line) || 0), 0) + 1;
+      const added = await DB.imports.addSku(head.id, sku, line);
+      state.data.skus.push(added);
+      el.skuDialog.close();
+      state.category = added.category || "";
+      el.skuFilter.value = "all";
+      relayout();
+      const tr = el.skuTable.querySelector('tr[data-sku="' + (state.data.skus.length - 1) + '"]');
+      if (tr) {
+        tr.classList.add("just-added");
+        tr.scrollIntoView({ block: "center", behavior: "smooth" });
+      }
+    } catch (err) {
+      console.error(err);
+      fail("Could not save: " + err.message);
+    } finally {
+      save.disabled = false;
+    }
+  });
+
+  async function removeSku(index) {
+    const s = state.data.skus[index];
+    if (!s || !confirm("Remove " + s.sku + " (" + catName(s.category) + ")? This cannot be undone.")) return;
+    failed = null;
+    saving++;
+    status();
+    try {
+      await DB.imports.removeSku(s.id);
+      state.data.skus.splice(state.data.skus.indexOf(s), 1);
+      if (state.selected && !state.alloc.locations.has(state.selected)) state.selected = null;
+      relayout();
+    } catch (err) {
+      console.error(err);
+      failed = "Could not remove " + s.sku + ": " + err.message;
+    } finally {
+      saving--;
+      status();
+    }
+  }
 
   el.exportBtn.addEventListener("click", function () {
     if (!Excel.available()) { alert("The spreadsheet library did not load, so the list cannot be written."); return; }
@@ -630,7 +775,8 @@ const Dashboard = (function () {
     } catch (e) {
       console.error(e);
       el.empty.hidden = false;
-      el.empty.querySelector("p").textContent = "The imported sheet could not be loaded: " + e.message;
+      el.dash.hidden = true;
+      el.empty.querySelector("p").textContent = e.message;
     }
   }
 

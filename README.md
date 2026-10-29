@@ -2,8 +2,8 @@
 
 Two things in one page:
 
-- **Racks** — import the SKU sheet and see every SKU's shelf in the 4KB
-  racks: which shelf, how many boxes, and how they sit on it.
+- **Racks** — the SKU list, and every SKU's shelf in the 4KB racks: which
+  shelf, how many boxes, and how they sit on it.
 - **Calculator** — type one box size, get how many fit in a rack and how.
 
 Every shelf is 240 × 120 × 85 cm (L × W × H).
@@ -20,38 +20,39 @@ Each shelf is labelled `4KB-row-column-layer`: `4KB-1-1-1` is Row 1,
 Column 1, Layer 1, and Layer 1 is the floor. The layout lives in
 [`layout.js`](layout.js) -- add a row or change a column count there.
 
-### Importing the SKU sheet
+### The SKU list
 
-The Import page takes `.xlsx` or `.xls` with these columns, in any order:
-Tier, Category, SKU, Sold per day, Quantity, Length, Width, Height,
-Qty per box.
+The list lives at the bottom of the Racks page, under **SKU**. Each SKU has
+a Tier, Category, SKU code, Sold per day, Quantity, Length, Width, Height
+(cm) and Qty per box.
 
-- Headers can sit below a title row, and close spellings are recognised
-  (`Item Code`, `L (cm)`, `Pcs/Box` ...). The page shows which header it
-  matched to which column before anything is saved.
-- The two numbers that used to be typed in are now worked out:
-  - **Needed qty** = *Sold per day × days*, where days is a setting on the
-    Racks page (15 to start with).
-  - **Boxes** = *Needed qty ÷ Qty per box*, **rounded up** -- a part-full
-    carton still takes a whole carton's room on the shelf.
+- **Categories.** One button per category, biggest first, says how many SKUs
+  it has and how many of those need something filled in. Clicking one lists
+  its SKUs, best seller (sold per day) first. *All categories* lists every
+  SKU, and the filter beside **+ Add SKU** narrows either view.
+- **+ Add SKU** opens a form. SKU code and category are required, and a code
+  already in the list is refused. The category box starts on the category
+  being shown, and suggests the ones that exist.
+- **Removing** a SKU is the **×** at the end of its row, after a
+  confirmation. It cannot be undone.
+- **Editing.** *Sold per day*, *Quantity*, *L*, *W*, *H* and *Qty per box*
+  are edited in place. A change is saved the moment it is committed (Enter,
+  Tab, or clicking away) and the racks are laid out again at once. An empty
+  box that is keeping a SKU off the racks -- usually *Qty per box* -- is
+  outlined. Tier, category and SKU code cannot be edited; remove the SKU and
+  add it again.
 
-  An older sheet that still has *Needed qty* or *Total # of boxes* columns
-  imports fine; those two columns are skipped, and the page says so.
-- Sizes are read as centimetres.
-- Saving a sheet replaces the previous one for everybody -- including any
-  numbers corrected on the dashboard. The Import page has a template to
-  download.
+Two numbers are worked out, not typed:
 
-### Correcting numbers after import
+- **Needed qty** = *Sold per day × days*, where days is a setting on the
+  Racks page (15 to start with).
+- **Boxes** = *Needed qty ÷ Qty per box*, **rounded up** -- a part-full
+  carton still takes a whole carton's room on the shelf.
 
-In the SKU list on the Racks page, *Sold per day*, *Quantity*, *L*, *W*,
-*H* and *Qty per box* can be edited in place. A change is saved the moment
-it is committed (Enter, Tab, or clicking away) and the racks are laid out
-again at once. An empty box that is keeping a SKU off the racks -- usually
-*Qty per box* -- is outlined, and the *Needs attention* filter lists every
-such SKU.
+Other PCs see a change the next time they load the page.
 
-Other PCs see an edit the next time they load the page.
+The list started as an imported Excel sheet. The Import page has since been
+taken out; `excel.js` still has the reader in case it is ever wanted back.
 
 ### How shelves are chosen
 
@@ -203,13 +204,12 @@ change if the app ever gains a login.
 | `packer.js` | How many boxes fit in a space, and where. No DOM -- testable on its own. |
 | `layout.js` | The 4KB rows, columns, layers and labels, and the fill orders. |
 | `allocate.js` | Which SKU goes on which shelf. No DOM -- testable on its own. |
-| `excel.js` | Reading the SKU sheet, the template, and the put-away export (SheetJS). |
-| `dashboard.js` | The racks page: map, shelf detail, SKU list, rules. |
-| `importer.js` | The import page. |
-| `pages.js` | Switching between Racks, Import and Calculator. |
+| `excel.js` | The put-away export (SheetJS). Also an unused sheet reader, from when there was an Import page. |
+| `dashboard.js` | The racks page: map, shelf detail, SKU list by category, adding and removing SKUs, rules. |
+| `pages.js` | Switching between Racks and Calculator. |
 | `view3d.js` | The 3D rack, on three.js. One instanced cube per box. |
 | `view2d.js` | The calculator's plan view, on a plain 2D canvas. |
-| `db.js` | Racks, presets and imported sheets, through Supabase or this browser. |
+| `db.js` | Racks, presets and the SKU list, through Supabase or this browser. |
 | `app.js` | The calculator page. |
 | `config.js` | Where Supabase goes, if you use it. |
 | `serve.py` | The server for this PC and the office network. |

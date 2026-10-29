@@ -114,7 +114,7 @@ const DB = (function () {
 
   // numeric columns come back from PostgREST as numbers, or as null
   function fromRow(r) {
-    const s = { id: r.id, tier: r.tier || "", category: r.category || "", sku: r.sku };
+    const s = { id: r.id, line: r.line_no, tier: r.tier || "", category: r.category || "", sku: r.sku };
     for (const k in COLUMNS) s[k] = r[COLUMNS[k]];
     return s;
   }
@@ -191,6 +191,47 @@ const DB = (function () {
         method: "PATCH", query: "?id=eq." + encodeURIComponent(id),
         body: patch, prefer: "return=minimal",
       });
+    },
+
+    // An empty list to add SKUs to by hand, for when nothing was ever
+    // imported.
+    async create(rules) {
+      if (!configured()) {
+        const data = {
+          import: { id: localId(), file_name: "Entered by hand", row_count: 0, rules: rules || {}, imported_at: new Date().toISOString() },
+          skus: [],
+        };
+        localStorage.setItem(LOCAL_IMPORT, JSON.stringify(data));
+        return data.import;
+      }
+      return (await rest(IMPORT_TABLE, {
+        method: "POST",
+        body: [{ file_name: "Entered by hand", row_count: 0, rules: rules || {} }],
+      }))[0];
+    },
+
+    // One new SKU at the end of the list. Returns it with the id it was
+    // given, which it needs before it can be edited or removed.
+    async addSku(importId, sku, line) {
+      if (!configured()) {
+        const data = JSON.parse(localStorage.getItem(LOCAL_IMPORT));
+        const id = data.skus.reduce((n, s) => Math.max(n, Number(s.id) || 0), 0) + 1;
+        const added = Object.assign({}, sku, { id: id, line: line });
+        data.skus.push(added);
+        localStorage.setItem(LOCAL_IMPORT, JSON.stringify(data));
+        return added;
+      }
+      return fromRow((await rest(SKU_TABLE, { method: "POST", body: [toRow(sku, importId, line)] }))[0]);
+    },
+
+    async removeSku(id) {
+      if (!configured()) {
+        const data = JSON.parse(localStorage.getItem(LOCAL_IMPORT));
+        data.skus = data.skus.filter((s) => s.id !== id);
+        localStorage.setItem(LOCAL_IMPORT, JSON.stringify(data));
+        return;
+      }
+      await rest(SKU_TABLE, { method: "DELETE", query: "?id=eq." + encodeURIComponent(id), prefer: "return=minimal" });
     },
 
     async setRules(id, rules) {

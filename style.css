@@ -124,7 +124,7 @@ input, select, button {
   color: var(--ink);
 }
 
-input[type="number"], select {
+input[type="number"], input[type="text"], select {
   width: 100%;
   padding: 7px 9px;
   background: var(--bg);
@@ -132,7 +132,7 @@ input[type="number"], select {
   border-radius: 8px;
 }
 
-input[type="number"]:focus, select:focus {
+input[type="number"]:focus, input[type="text"]:focus, select:focus {
   outline: 2px solid var(--accent);
   outline-offset: -1px;
   border-color: transparent;
@@ -476,9 +476,40 @@ body.detail-open { overflow: hidden; }
 .tbl input.cell-in.want { border-color: var(--warn); border-style: dashed; background: color-mix(in srgb, var(--warn) 8%, transparent); }
 .tbl td.edit-col { padding-top: 3px; padding-bottom: 3px; }
 .tbl td.sku-name { white-space: nowrap; }
-.sku-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
-.sku-head h3 { margin: 0; }
-.sku-head select { width: auto; }
+.sku-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin-bottom: 12px; }
+.sku-head h3 { margin: 0; font-size: 18px; }
+.sku-tools { display: flex; gap: 8px; align-items: center; }
+.sku-tools select { width: auto; }
+
+/* One button per category: its name, how many SKUs it has, and how many of
+   those need something filled in. */
+.cat-list { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 12px; }
+.cat-btn {
+  display: flex; flex-direction: column; align-items: flex-start; gap: 2px;
+  padding: 8px 14px; min-width: 120px; text-align: left; cursor: pointer;
+  background: var(--bg); color: var(--ink); border: 1px solid var(--line); border-radius: 10px;
+  font: inherit;
+}
+.cat-btn:hover { border-color: var(--accent); }
+.cat-btn.on { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 12%, var(--card)); }
+.cat-btn b { font-size: 14px; }
+.cat-btn .cnt { font-size: 12px; color: var(--ink-soft); }
+.cat-btn .warn { color: var(--warn); }
+.cat-hint { margin: 4px 0 0; }
+.tbl .row-del { padding: 2px 8px; font-size: 15px; line-height: 1; }
+
+/* ---- add SKU ---- */
+.add-sku {
+  width: min(560px, calc(100vw - 32px)); padding: 20px 22px; border: 1px solid var(--line);
+  border-radius: var(--radius); background: var(--card); color: var(--ink); box-shadow: var(--shadow);
+}
+.add-sku::backdrop { background: rgba(10, 16, 26, .45); }
+.add-sku h3 { margin: 0 0 14px; font-size: 18px; }
+.add-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px 14px; }
+.add-grid .wide { grid-column: 1 / -1; }
+.add-grid .field { margin: 0; }
+.add-error { color: var(--warn); font-size: 13px; margin: 12px 0 0; }
+.add-sku .row-btns { justify-content: flex-end; margin-top: 16px; }
 
 /* ==================================================================
    Import
@@ -536,3 +567,4 @@ body.detail-open { overflow: hidden; }
   .detail-body { padding: 10px 12px; }
   #page-racks, #page-import { padding: 12px; }
 }
+.tbl tr.just-added td { background: color-mix(in srgb, var(--accent) 14%, transparent); }
