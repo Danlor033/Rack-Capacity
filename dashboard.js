@@ -25,7 +25,8 @@ const Dashboard = (function () {
     skuFilter: $("skuFilter"), skuTable: $("skuTable"),
     tierList: $("tierList"), gap: $("dataGap"), gapText: $("dataGapText"), gapShow: $("dataGapShow"),
     ruleDays: $("ruleDays"), skuStatus: $("skuStatus"),
-    catList: $("catList"), catHint: $("catHint"), skuWrap: $("skuWrap"), skuAdd: $("skuAdd"),
+    catList: $("catList"), catHint: $("catHint"), skuAdd: $("skuAdd"),
+    catModal: $("catModal"), catTitle: $("catTitle"), catClose: $("catClose"), catAdd: $("catAdd"), catBody: $("catBody"),
     skuDialog: $("skuDialog"), skuForm: $("skuForm"), skuFormError: $("skuFormError"),
     skuCancel: $("skuCancel"), catOptions: $("catOptions"), tierOptions: $("tierOptions"),
   };
@@ -35,7 +36,7 @@ const Dashboard = (function () {
     rules: Object.assign({}, Allocate.DEFAULT_RULES),
     alloc: null,
     selected: null,    // shelf label
-    category: null,    // the category whose SKUs are listed; ALL for every one
+    category: null,    // the category whose SKUs are open; ALL for every one
     search: "",
     colors: null,
     view: null,
@@ -139,7 +140,7 @@ const Dashboard = (function () {
         .reduce((n, r) => n + r.needed, 0);
       el.gapText.innerHTML = "<b>" + s.skusNoCount + " SKUs</b> sell (" + units.toLocaleString() +
         " units over " + state.rules.days + " days) but have no <em>Qty per box</em>, so their boxes " +
-        "cannot be counted and the racks have no room set aside for them. Fill it in, in the SKU list below.";
+        "cannot be counted and the racks have no room set aside for them. Click <em>Show them</em> to fill it in.";
       el.gap.hidden = false;
     } else {
       el.gap.hidden = true;
@@ -425,12 +426,13 @@ const Dashboard = (function () {
 
   function renderSkus() {
     const picked = state.category;
-    el.skuWrap.hidden = picked === null;
-    el.catHint.hidden = picked !== null;
     el.catHint.textContent = state.data.skus.length
-      ? "Pick a category to see its SKUs, best seller first."
+      ? "Click a category to see and edit its SKUs, best seller first."
       : "No SKUs yet \u2014 add the first one with + Add SKU.";
+    el.catModal.hidden = picked === null;
+    document.body.classList.toggle("cat-open", picked !== null);
     if (picked === null) { el.skuTable.innerHTML = ""; return; }
+    el.catTitle.textContent = picked === ALL ? "All categories" : catName(picked);
 
     const filter = el.skuFilter.value;
     // Best seller first. The order is set when the list is drawn, and an
@@ -504,8 +506,12 @@ const Dashboard = (function () {
   }
 
   el.detailClose.addEventListener("click", closeDetail);
+  // Esc closes the window on top: the shelf, then the category. The Add SKU
+  // form closes itself.
   document.addEventListener("keydown", function (e) {
-    if (e.key === "Escape" && !el.detail.hidden) closeDetail();
+    if (e.key !== "Escape" || el.skuDialog.open) return;
+    if (!el.detail.hidden) closeDetail();
+    else if (!el.catModal.hidden) closeCategory();
   });
 
   el.skuTable.addEventListener("click", function (e) {
@@ -654,20 +660,30 @@ const Dashboard = (function () {
     ruleChanged();
   });
 
-  el.gapShow.addEventListener("click", function () {
-    state.category = ALL;
-    el.skuFilter.value = "nocount";
+  function openCategory(key, filter) {
+    state.category = key;
+    el.skuFilter.value = filter || "all";
     renderCategories();
     renderSkus();
-    el.catList.scrollIntoView({ block: "start", behavior: "smooth" });
-  });
+    el.catBody.scrollTop = 0;
+  }
+
+  function closeCategory() {
+    state.category = null;
+    renderCategories();
+    renderSkus();
+  }
+
+  el.gapShow.addEventListener("click", function () { openCategory(ALL, "nocount"); });
 
   el.catList.addEventListener("click", function (e) {
     const btn = e.target.closest("button[data-cat]");
-    if (!btn) return;
-    state.category = btn.dataset.cat;
-    renderCategories();
-    renderSkus();
+    if (btn) openCategory(btn.dataset.cat);
+  });
+  el.catClose.addEventListener("click", closeCategory);
+  // A click on the dimmed page around the window closes it too.
+  el.catModal.addEventListener("click", function (e) {
+    if (e.target === el.catModal) closeCategory();
   });
 
   // --- adding and removing SKUs ---------------------------------------------
@@ -685,13 +701,15 @@ const Dashboard = (function () {
 
   const NUMBERS = ["soldPerDay", "quantity", "length", "width", "height", "qtyPerBox"];
 
-  el.skuAdd.addEventListener("click", function () {
+  function openAdd() {
     el.skuForm.reset();
     el.skuFormError.hidden = true;
     if (state.category !== null && state.category !== ALL) el.skuForm.querySelector('[name="category"]').value = state.category;
     el.skuDialog.showModal();
     el.skuForm.querySelector('[name="sku"]').focus();
-  });
+  }
+  el.skuAdd.addEventListener("click", openAdd);
+  el.catAdd.addEventListener("click", openAdd);
   el.skuCancel.addEventListener("click", function () { el.skuDialog.close(); });
 
   el.skuForm.addEventListener("submit", async function (e) {

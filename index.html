@@ -4,7 +4,7 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>Rack Planner</title>
-<link rel="stylesheet" href="style.css?v=2026-10-29j" />
+<link rel="stylesheet" href="style.css?v=2026-10-29k" />
 </head>
 <body>
 
@@ -45,6 +45,43 @@
           <option value="sku">Colour by SKU</option>
         </select>
         <button class="primary" id="dashExport" type="button">Export put-away list</button>
+      </div>
+    </div>
+
+    <div class="card sku-card" id="skuCard">
+      <div class="sku-head">
+        <div>
+          <h3>SKU</h3>
+          <p class="sub" id="catHint">Click a category to see and edit its SKUs, best seller first.</p>
+        </div>
+        <button class="primary" id="skuAdd" type="button">+ Add SKU</button>
+      </div>
+      <div class="cat-list" id="catList"></div>
+    </div>
+
+    <!-- One category's SKUs, floating over the page. A shelf opened from it
+         shows on top, and closing that comes back here. -->
+    <div class="cat-modal" id="catModal" role="dialog" aria-modal="true" aria-labelledby="catTitle" hidden>
+      <div class="cat-panel">
+        <div class="cat-head">
+          <div class="detail-title">
+            <span class="detail-cap">Category</span>
+            <h3 id="catTitle">&nbsp;</h3>
+            <p class="save-status sub" id="skuStatus">Edit Sold / day, Quantity, L, W, H or Qty / box in place &mdash; changes are saved for everyone</p>
+          </div>
+          <div class="sku-tools">
+            <select id="skuFilter" title="Which of the category's SKUs to show">
+              <option value="all">All SKUs</option>
+              <option value="missing">Needs attention</option>
+              <option value="nocount">No box count</option>
+              <option value="placed">Has shelves</option>
+              <option value="skipped">Tier gets no shelves</option>
+            </select>
+            <button class="primary" id="catAdd" type="button">+ Add SKU</button>
+            <button class="ghost small detail-close" id="catClose" type="button" title="Close (Esc)" aria-label="Close">&times;</button>
+          </div>
+        </div>
+        <div class="tbl-wrap cat-body" id="catBody"><table class="tbl" id="skuTable"></table></div>
       </div>
     </div>
 
@@ -131,28 +168,6 @@
         </div>
         <div class="detail-list" id="dTable"></div>
       </div>
-    </div>
-
-    <div class="card sku-card" id="skuCard">
-      <div class="sku-head">
-        <div>
-          <h3>SKU</h3>
-          <p class="save-status sub" id="skuStatus">Edit Sold / day, Quantity, L, W, H or Qty / box in place &mdash; changes are saved for everyone</p>
-        </div>
-        <div class="sku-tools">
-          <select id="skuFilter" title="Which of the category's SKUs to show">
-            <option value="all">All SKUs</option>
-            <option value="missing">Needs attention</option>
-            <option value="nocount">No box count</option>
-            <option value="placed">Has shelves</option>
-            <option value="skipped">Tier gets no shelves</option>
-          </select>
-          <button class="primary" id="skuAdd" type="button">+ Add SKU</button>
-        </div>
-      </div>
-      <div class="cat-list" id="catList"></div>
-      <p class="sub cat-hint" id="catHint">Pick a category to see its SKUs, best seller first.</p>
-      <div class="tbl-wrap" id="skuWrap" hidden><table class="tbl" id="skuTable"></table></div>
     </div>
 
     <dialog class="add-sku" id="skuDialog" aria-labelledby="skuDialogTitle">
@@ -287,16 +302,16 @@
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-<script src="config.js?v=2026-10-29j"></script>
-<script src="packer.js?v=2026-10-29j"></script>
-<script src="layout.js?v=2026-10-29j"></script>
-<script src="allocate.js?v=2026-10-29j"></script>
-<script src="db.js?v=2026-10-29j"></script>
-<script src="excel.js?v=2026-10-29j"></script>
-<script src="view3d.js?v=2026-10-29j"></script>
-<script src="view2d.js?v=2026-10-29j"></script>
-<script src="app.js?v=2026-10-29j"></script>
-<script src="dashboard.js?v=2026-10-29j"></script>
-<script src="pages.js?v=2026-10-29j"></script>
+<script src="config.js?v=2026-10-29k"></script>
+<script src="packer.js?v=2026-10-29k"></script>
+<script src="layout.js?v=2026-10-29k"></script>
+<script src="allocate.js?v=2026-10-29k"></script>
+<script src="db.js?v=2026-10-29k"></script>
+<script src="excel.js?v=2026-10-29k"></script>
+<script src="view3d.js?v=2026-10-29k"></script>
+<script src="view2d.js?v=2026-10-29k"></script>
+<script src="app.js?v=2026-10-29k"></script>
+<script src="dashboard.js?v=2026-10-29k"></script>
+<script src="pages.js?v=2026-10-29k"></script>
 </body>
 </html>

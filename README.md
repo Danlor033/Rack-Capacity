@@ -22,14 +22,16 @@ Column 1, Layer 1, and Layer 1 is the floor. The layout lives in
 
 ### The SKU list
 
-The list lives at the bottom of the Racks page, under **SKU**. Each SKU has
+The list lives at the top of the Racks page, under **SKU**. Each SKU has
 a Tier, Category, SKU code, Sold per day, Quantity, Length, Width, Height
 (cm) and Qty per box.
 
 - **Categories.** One button per category, biggest first, says how many SKUs
-  it has and how many of those need something filled in. Clicking one lists
-  its SKUs, best seller (sold per day) first. *All categories* lists every
-  SKU, and the filter beside **+ Add SKU** narrows either view.
+  it has and how many of those need something filled in. Clicking one opens
+  its SKUs in a window over the page, best seller (sold per day) first.
+  *All categories* lists every SKU, and the filter in the window narrows
+  either view. A shelf opened from the window shows on top of it; Esc closes
+  the shelf, then the window.
 - **+ Add SKU** opens a form. SKU code and category are required, and a code
   already in the list is refused. The category box starts on the category
   being shown, and suggests the ones that exist.

@@ -423,7 +423,32 @@ h2, h3 { letter-spacing: -.01em; }
   background: var(--bg);
 }
 .detail[hidden] { display: none; }
-body.detail-open { overflow: hidden; }
+body.detail-open, body.cat-open { overflow: hidden; }
+
+/* ---- one category's SKUs: a window floating over the page ---- */
+
+.cat-modal {
+  position: fixed; inset: 0; z-index: 40;
+  display: flex; align-items: center; justify-content: center; padding: 24px;
+  background: rgba(10, 16, 26, .5);
+}
+.cat-modal[hidden] { display: none; }
+.cat-panel {
+  display: flex; flex-direction: column;
+  width: 100%; max-width: 1600px; height: 100%; min-width: 0;
+  background: var(--card); border: 1px solid var(--line); border-radius: var(--radius);
+  box-shadow: 0 2px 6px rgba(16, 26, 40, .12), 0 18px 48px rgba(16, 26, 40, .35);
+  overflow: hidden;
+}
+.cat-head {
+  display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; flex-wrap: wrap;
+  padding: 14px 18px; border-bottom: 1px solid var(--line);
+}
+.cat-head h3 { margin: 0; font-size: 22px; }
+.cat-head .sku-tools { margin-left: auto; }
+.cat-head .save-status { margin: 2px 0 0; }
+.cat-body { flex: 1; min-height: 0; max-height: none; overflow: auto; margin: 0; padding: 0 6px 6px; }
+.cat-body thead th { position: sticky; top: 0; z-index: 1; background: var(--card); }
 .detail-head {
   display: flex; justify-content: space-between; align-items: center; gap: 16px;
   padding: 14px 24px; background: var(--card); border-bottom: 1px solid var(--line);
@@ -477,13 +502,14 @@ body.detail-open { overflow: hidden; }
 .tbl td.edit-col { padding-top: 3px; padding-bottom: 3px; }
 .tbl td.sku-name { white-space: nowrap; }
 .sku-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin-bottom: 12px; }
+.sku-head .sub { margin: 2px 0 0; }
 .sku-head h3 { margin: 0; font-size: 18px; }
 .sku-tools { display: flex; gap: 8px; align-items: center; }
 .sku-tools select { width: auto; }
 
 /* One button per category: its name, how many SKUs it has, and how many of
    those need something filled in. */
-.cat-list { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 12px; }
+.cat-list { display: flex; flex-wrap: wrap; gap: 8px; }
 .cat-btn {
   display: flex; flex-direction: column; align-items: flex-start; gap: 2px;
   padding: 8px 14px; min-width: 120px; text-align: left; cursor: pointer;
@@ -495,7 +521,6 @@ body.detail-open { overflow: hidden; }
 .cat-btn b { font-size: 14px; }
 .cat-btn .cnt { font-size: 12px; color: var(--ink-soft); }
 .cat-btn .warn { color: var(--warn); }
-.cat-hint { margin: 4px 0 0; }
 .tbl .row-del { padding: 2px 8px; font-size: 15px; line-height: 1; }
 
 /* ---- add SKU ---- */
@@ -565,6 +590,7 @@ body.detail-open { overflow: hidden; }
   .detail-head { padding: 10px 12px; flex-wrap: wrap; }
   .detail-stats { order: 3; width: 100%; gap: 18px; }
   .detail-body { padding: 10px 12px; }
+  .cat-modal { padding: 8px; }
   #page-racks, #page-import { padding: 12px; }
 }
 .tbl tr.just-added td { background: color-mix(in srgb, var(--accent) 14%, transparent); }
