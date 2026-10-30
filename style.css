@@ -521,7 +521,7 @@ body.detail-open, body.cat-open { overflow: hidden; }
 .tbl td.edit-col input.cell-in { width: 100%; padding: 3px 6px; }
 .tbl td.sku-name { white-space: nowrap; }
 .sku-wrap { display: flex; align-items: center; gap: 6px; min-width: 0; }
-.sku-wrap b { overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+.sku-wrap b { min-width: 0; overflow-wrap: anywhere; }
 .copy-btn {
   flex: none; display: inline-flex; align-items: center; justify-content: center;
   width: 22px; height: 22px; padding: 0; border: 1px solid transparent; border-radius: 5px;
@@ -549,18 +549,22 @@ body.detail-open, body.cat-open { overflow: hidden; }
 
 /* The SKU list in the category window: fixed columns, so every heading
    sits exactly over its numbers and no row is taller than another. */
-#skuTable { table-layout: fixed; min-width: 1560px; }
+#skuTable { table-layout: fixed; width: 100%; }
 #skuTable td { vertical-align: middle; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+#skuTable th { white-space: normal; vertical-align: bottom; line-height: 1.25; }
+/* Tier, category and SKU are shown in full, on as many lines as they need. */
+#skuTable td.wrap { white-space: normal; overflow: visible; overflow-wrap: break-word; }
+#skuTable td.sku-name { overflow-wrap: anywhere; }
 /* Everything in the list reads from the left, headings and numbers alike. */
 #skuTable th, #skuTable td, #skuTable .num, #skuTable input.cell-in { text-align: left; }
 #skuTable td.locs { white-space: normal; overflow: visible; }
 /* One location per line, its buttons always at the right end in view. */
 .loc-chip {
-  display: flex; align-items: center; gap: 6px; max-width: 100%; margin: 0 0 4px; padding: 1px 2px 1px 7px;
+  display: flex; flex-wrap: wrap; align-items: center; gap: 0 6px; max-width: 100%; margin: 0 0 4px; padding: 1px 2px 1px 7px;
   border: 1px solid var(--line); border-radius: 6px; background: var(--bg);
 }
 .loc-chip > a { flex: none; }
-.loc-chip .loc-qty { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.loc-chip .loc-qty { flex: 1 0 auto; }
 .loc-acts { flex: none; display: inline-flex; align-items: center; gap: 2px; margin-left: auto; }
 .loc-chip .copy-btn { width: 22px; height: 22px; }
 .loc-qty { font-size: 11.5px; color: var(--ink-soft); white-space: nowrap; }
