@@ -511,6 +511,15 @@ body.detail-open, body.cat-open { overflow: hidden; }
 .tbl td.edit-col { padding: 3px 4px 3px 1px; }
 .tbl td.edit-col input.cell-in { width: 100%; padding: 3px 6px; }
 .tbl td.sku-name { white-space: nowrap; }
+.sku-wrap { display: flex; align-items: center; gap: 6px; min-width: 0; }
+.sku-wrap b { overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+.copy-btn {
+  flex: none; display: inline-flex; align-items: center; justify-content: center;
+  width: 22px; height: 22px; padding: 0; border: 1px solid transparent; border-radius: 5px;
+  background: transparent; color: var(--ink-soft); cursor: pointer;
+}
+.copy-btn:hover { color: var(--accent); border-color: var(--line); background: var(--card); }
+.copy-btn.done { color: var(--good); }
 .sku-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin-bottom: 12px; }
 .sku-head .sub { margin: 2px 0 0; }
 .sku-head h3 { margin: 0; font-size: 18px; }

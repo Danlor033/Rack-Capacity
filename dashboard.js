@@ -361,6 +361,33 @@ const Dashboard = (function () {
 
   const needsAttention = (r) => ATTENTION.indexOf(r.problem) >= 0;
 
+  const COPY_ICON = '<svg viewBox="0 0 16 16" width="13" height="13" aria-hidden="true"><rect x="5.5" y="5.5" width="8" height="9" rx="1.5" fill="none" stroke="currentColor" stroke-width="1.4"/><path d="M3.5 10.5h-1a1 1 0 0 1-1-1v-7a1 1 0 0 1 1-1h7a1 1 0 0 1 1 1v1" fill="none" stroke="currentColor" stroke-width="1.4"/></svg>';
+  const DONE_ICON = '<svg viewBox="0 0 16 16" width="13" height="13" aria-hidden="true"><path d="M3 8.5l3 3 7-7" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+
+  // The clipboard API only exists on https and localhost. The office copy is
+  // plain http on the network, so there the old copy command does the job.
+  function copyText(value) {
+    if (navigator.clipboard && window.isSecureContext) {
+      return navigator.clipboard.writeText(value).catch(function () { return copyByCommand(value); });
+    }
+    return copyByCommand(value);
+  }
+
+  function copyByCommand(value) {
+    return new Promise(function (resolve, reject) {
+      const area = document.createElement("textarea");
+      area.value = value;
+      area.setAttribute("readonly", "");
+      area.style.position = "fixed";
+      area.style.opacity = "0";
+      document.body.appendChild(area);
+      area.select();
+      const ok = document.execCommand("copy");
+      area.remove();
+      if (ok) resolve(); else reject(new Error("copy refused"));
+    });
+  }
+
   // A row's cells that are worked out rather than typed: needed, boxes,
   // placed, no shelf, per shelf, shelves taken, locations.
   function workedOut(r) {
@@ -520,7 +547,9 @@ const Dashboard = (function () {
       html += '<tr data-sku="' + r.index + '"' + (needsAttention(r) ? ' class="short"' : "") + ">" +
         '<td class="sub">' + (i + 1) + "</td>" +
         '<td title="' + esc(s.tier) + '">' + esc(s.tier) + '</td><td title="' + esc(s.category) + '"><i class="cat-dot" style="background:' + categoryColor(s.category) + '"></i>' + esc(s.category) +
-        '</td><td class="sku-name" title="' + esc(s.sku) + '"><b>' + esc(s.sku) + "</b></td>" +
+        '</td><td class="sku-name" title="' + esc(s.sku) + '"><span class="sku-wrap"><b>' + esc(s.sku) + "</b>" +
+        '<button type="button" class="copy-btn" data-copy="' + esc(s.sku) + '" title="Copy SKU" aria-label="Copy ' + esc(s.sku) + '">' +
+        COPY_ICON + "</button></span></td>" +
         inputs +
         '<td class="num">' + worked[0] + '</td><td class="num">' + worked[1] + "</td>" +
         '<td class="num">' + worked[2] + '</td><td class="num">' + worked[3] + "</td>" +
@@ -573,6 +602,20 @@ const Dashboard = (function () {
     if (link) {
       e.preventDefault();
       select(link.dataset.loc, true);
+      return;
+    }
+    const copy = e.target.closest("button[data-copy]");
+    if (copy) {
+      copyText(copy.dataset.copy).then(function () {
+        copy.innerHTML = DONE_ICON;
+        copy.classList.add("done");
+        copy.title = "Copied";
+        setTimeout(function () {
+          copy.innerHTML = COPY_ICON;
+          copy.classList.remove("done");
+          copy.title = "Copy SKU";
+        }, 1200);
+      }).catch(function () { copy.title = "Could not copy"; });
       return;
     }
     const free = e.target.closest("button[data-free]");
