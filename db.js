@@ -289,6 +289,23 @@ const DB = (function () {
       return { label: label, sku: skuId, qty: units, at: at };
     },
 
+    // Change how many units of a SKU are on a shelf.
+    async setQty(importId, label, skuId, qty) {
+      const units = qty > 0 ? qty : null;
+      if (!configured()) {
+        const all = localShelves().map((a) => (a.importId === importId && a.label === label && a.sku === skuId
+          ? Object.assign({}, a, { qty: units }) : a));
+        localStorage.setItem(LOCAL_SHELVES, JSON.stringify(all));
+        return;
+      }
+      await rest(SHELF_TABLE, {
+        method: "PATCH",
+        query: "?import_id=eq." + importId + "&label=eq." + encodeURIComponent(label) + "&sku_id=eq." + encodeURIComponent(skuId),
+        body: { qty: units },
+        prefer: "return=minimal",
+      });
+    },
+
     // Take one SKU off a shelf; anything else on it stays.
     async free(importId, label, skuId) {
       if (!configured()) {

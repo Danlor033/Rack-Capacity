@@ -401,6 +401,7 @@ const Dashboard = (function () {
   const needsAttention = (r) => ATTENTION.indexOf(r.problem) >= 0;
 
   const COPY_ICON = '<svg viewBox="0 0 16 16" width="13" height="13" aria-hidden="true"><rect x="5.5" y="5.5" width="8" height="9" rx="1.5" fill="none" stroke="currentColor" stroke-width="1.4"/><path d="M3.5 10.5h-1a1 1 0 0 1-1-1v-7a1 1 0 0 1 1-1h7a1 1 0 0 1 1 1v1" fill="none" stroke="currentColor" stroke-width="1.4"/></svg>';
+  const EDIT_ICON = '<svg viewBox="0 0 16 16" width="13" height="13" aria-hidden="true"><path d="M10.8 2.7l2.5 2.5L6 12.5l-3.2.7.7-3.2z" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/><path d="M9.3 4.2l2.5 2.5" stroke="currentColor" stroke-width="1.4"/></svg>';
   const DONE_ICON = '<svg viewBox="0 0 16 16" width="13" height="13" aria-hidden="true"><path d="M3 8.5l3 3 7-7" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>';
 
   // The clipboard API only exists on https and localhost. The office copy is
@@ -435,7 +436,10 @@ const Dashboard = (function () {
       const shared = (state.alloc.locations.get(p.label) || { sections: [] }).sections.length > 1;
       return '<span class="loc-chip"><a href="#" data-loc="' + p.label + '">' + p.label + "</a>" +
         '<span class="loc-qty">' + fmt(p.boxes) + " box" + (p.boxes === 1 ? "" : "es") +
-        (perBox ? " \u00b7 " + fmt(p.qty) + " qty" : "") + "</span>" +
+        (perBox ? " \u00b7 " + fmt(p.qty) + " qty" +
+          '<button type="button" class="copy-btn edit-btn" data-edit-qty="' + p.label + '" data-edit-sku="' + r.index +
+          '" title="Change the qty on ' + p.label + '" aria-label="Change the qty on ' + p.label + '">' + EDIT_ICON + "</button>" : "") +
+        "</span>" +
         // A shelf that filled up before this SKU got any room on it, for
         // instance when the SKU before it was given its qty per box later.
         (!p.boxes && r.counted && r.stock > 0 && r.perShelf
@@ -726,6 +730,8 @@ const Dashboard = (function () {
     }
     const free = e.target.closest("button[data-free]");
     if (free) { freeShelf(free.dataset.free, Number(free.dataset.freeSku)); return; }
+    const edit = e.target.closest("button[data-edit-qty]");
+    if (edit) { editShelfQty(edit.dataset.editQty, Number(edit.dataset.editSku)); return; }
     const pick = e.target.closest("button[data-pick]");
     if (pick) { openPicker(Number(pick.dataset.pick)); return; }
     if (e.target.closest("input, select, button")) return;
@@ -915,6 +921,48 @@ const Dashboard = (function () {
     } catch (err) {
       console.error(err);
       failed = "Could not give " + label + " to " + r.sku.sku + ": " + err.message;
+    } finally {
+      saving--;
+      status();
+    }
+  }
+
+  // A new quantity for a SKU already on a shelf: up to what it has there
+  // plus what is still without a shelf, and no more than the room it has
+  // there plus the room still free on the shelf.
+  async function editShelfQty(label, index) {
+    const r = state.alloc.results[index];
+    if (!r) return;
+    const spot = r.spots.find((p) => p.label === label);
+    const perBox = r.sku.qtyPerBox;
+    if (!spot || !(perBox > 0)) return;
+    const rec = state.alloc.locations.get(label);
+    const roomBoxes = spot.boxes + (rec ? roomFor(rec, index) : 0);
+    const max = Math.max(1, Math.min(spot.qty + r.qtyLeft, roomBoxes * perBox));
+    const qty = await ask({
+      title: "Change the qty on " + label,
+      body: '<ul class="ask-list">' + askLine(index, "now " + fmt(spot.qty) + " qty \u00b7 " + fmt(spot.boxes) +
+        " box" + (spot.boxes === 1 ? "" : "es"), true) + "</ul>",
+      yes: "Save",
+      number: {
+        label: "Quantity on " + label, value: spot.qty, max: max,
+        hint: "Up to " + fmt(max) + ". " + fmt(spot.qty) + " here now, " + fmt(r.qtyLeft) + " still without a shelf; " +
+          "this shelf has room for " + fmt(roomBoxes) + " box" + (roomBoxes === 1 ? "" : "es") + " of " + fmt(perBox) +
+          " (" + fmt(roomBoxes * perBox) + " qty) of it.",
+      },
+    });
+    if (qty === null || qty === spot.qty) return;
+    failed = null;
+    saving++;
+    status();
+    try {
+      await DB.shelves.setQty(state.data.import.id, label, r.sku.id, qty);
+      state.data.shelves = state.data.shelves.map((a) => (a.label === label && String(a.sku) === String(r.sku.id)
+        ? Object.assign({}, a, { qty: qty }) : a));
+      refresh();
+    } catch (err) {
+      console.error(err);
+      failed = "Could not change the qty on " + label + ": " + err.message;
     } finally {
       saving--;
       status();
