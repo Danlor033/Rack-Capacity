@@ -1102,10 +1102,12 @@ const Dashboard = (function () {
       const changed = [];
       let matched = 0;
       for (const s of state.data.skus) {
+        // null: the SKU is in the sheet but column D is empty, so it is
+        // emptied here too. undefined: not in the sheet, left as it is.
         const v = sold.get(String(s.sku).trim().toLowerCase());
         if (v === undefined) continue;
         matched++;
-        if (v !== s.soldPerDay) {
+        if (v !== (s.soldPerDay === undefined ? null : s.soldPerDay)) {
           s.soldPerDay = v;
           changed.push(s);
         }

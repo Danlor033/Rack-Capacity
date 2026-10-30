@@ -41,8 +41,9 @@ const SoldSheet = (function () {
     return isFinite(n) ? n : null;
   }
 
-  // Map of SKU (lower case) -> sold per day. The header row, blank rows and
-  // rows without a number in column D are left out.
+  // Map of SKU (lower case) -> sold per day, or null where column D is
+  // empty: the sheet is copied as it is, blanks included. The header row and
+  // rows with no SKU are left out.
   async function read() {
     const res = await fetch(CSV_URL, { cache: "no-store" });
     if (!res.ok) throw new Error("Google Sheets answered " + res.status);
@@ -51,8 +52,8 @@ const SoldSheet = (function () {
     const sold = new Map();
     for (const row of parseCsv(text)) {
       const sku = String(row[SKU_COL] || "").trim().toLowerCase();
-      const n = number(row[SOLD_COL]);
-      if (sku && n !== null) sold.set(sku, n);
+      if (!sku || sku === "sku") continue;
+      sold.set(sku, number(row[SOLD_COL]));
     }
     return sold;
   }

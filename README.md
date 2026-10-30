@@ -57,8 +57,9 @@ page title links the sheet and says when it was last checked.
 - The sheet must stay shared as *anyone with the link can view*; that is
   what lets a browser read it without a Google sign-in. If it is made
   private, the page says it cannot read it and keeps the saved numbers.
-- SKUs are matched by code, ignoring case. A SKU that is not in the sheet
-  keeps its saved number.
+- SKUs are matched by code, ignoring case. The sheet is copied as it is:
+  an empty cell in column D empties Sold/Day too (Needed and Boxes become 0).
+  A SKU that is not in the sheet at all keeps its saved number.
 - Which sheet and columns: `soldsheet.js`.
 
 Two numbers are worked out, not typed:
