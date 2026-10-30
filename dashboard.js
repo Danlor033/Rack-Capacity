@@ -226,7 +226,7 @@ const Dashboard = (function () {
     }
 
     let inner = "";
-    let tip = label + (rec ? " Ã‚Â· " + pct(rec.fill) + " full" : pick === undefined ? " Ã‚Â· empty" : " Ã‚Â· vacant");
+    let tip = label + (rec ? " · " + pct(rec.fill) + " full" : pick === undefined ? " · empty" : " · vacant");
     if (rec) {
       for (const sec of rec.sections) {
         const s = state.data.skus[sec.sku];
@@ -235,7 +235,7 @@ const Dashboard = (function () {
         inner += '<i style="left:' + (sec.x / shelf.l * 100).toFixed(2) + "%;width:" +
           (sec.len / shelf.l * 100).toFixed(2) + "%;height:" + Math.max(8, level * 100).toFixed(1) +
           "%;background:" + colorOf(sec.sku) + '"></i>';
-        tip += "\n" + s.sku + " Ãƒâ€”" + sec.boxes + (s.category ? "  Ã‚Â· " + s.category : "") + (s.tier ? "  Ã‚Â· " + s.tier : "");
+        tip += "\n" + s.sku + " ×" + sec.boxes + (s.category ? "  · " + s.category : "") + (s.tier ? "  · " + s.tier : "");
       }
       if (rec.sections.length > 1) inner += '<b class="n">' + rec.sections.length + "</b>";
     }
@@ -276,9 +276,9 @@ const Dashboard = (function () {
         }
         colsHtml += '<div class="col-num">Col ' + col + "</div></div>";
       }
-      const name = rowNames.has(row) ? '<span class="row-cat">' + rowNames.get(row).map(esc).join(" Ã‚Â· ") + "</span>" : "";
+      const name = rowNames.has(row) ? '<span class="row-cat">' + rowNames.get(row).map(esc).join(" · ") + "</span>" : "";
       html += '<div class="rack-row"><div class="rack-row-head"><b>Row ' + row + "</b>" + name +
-        '<span class="sub">' + cols + " columns Ã‚Â· " + used + " of " + cols * Layout.LAYERS + " shelves used</span></div>" +
+        '<span class="sub">' + cols + " columns · " + used + " of " + cols * Layout.LAYERS + " shelves used</span></div>" +
         '<div class="rack-cols" style="--max:' + widest + '"><div class="layer-axis"><span>Layer 3</span><span>Layer 2</span><span>Layer 1</span></div>' +
         colsHtml + "</div></div>";
     });
@@ -325,15 +325,15 @@ const Dashboard = (function () {
     }
 
     if (!rec) {
-      el.dTable.innerHTML = '<p class="sub detail-none">Empty shelf Ã¢â‚¬â€ nothing in the sheet needs it.</p>';
+      el.dTable.innerHTML = '<p class="sub detail-none">Empty shelf — nothing in the sheet needs it.</p>';
       return;
     }
 
     // One card per SKU on the shelf, every number named.
-    const dash = '<span class="sub">Ã¢â‚¬â€</span>';
+    const dash = '<span class="sub">—</span>';
     const boxes = rec.sections.reduce((n, sec) => n + sec.boxes, 0);
     let html = '<p class="detail-sum"><b>' + rec.sections.length + "</b> SKU" + (rec.sections.length === 1 ? "" : "s") +
-      " Ã‚Â· <b>" + fmt(boxes) + "</b> box" + (boxes === 1 ? "" : "es") + " on this shelf</p>";
+      " · <b>" + fmt(boxes) + "</b> box" + (boxes === 1 ? "" : "es") + " on this shelf</p>";
     rec.sections.forEach(function (sec, i) {
       const s = state.data.skus[sec.sku];
       const fact = (name, value, wide) => '<div' + (wide ? ' class="wide"' : "") + "><dt>" + name + "</dt><dd>" +
@@ -347,7 +347,7 @@ const Dashboard = (function () {
         fact("Qty per box", s.qtyPerBox > 0 ? fmt(s.qtyPerBox) : "") +
         fact("Boxes on shelf", "<b>" + fmt(sec.boxes) + "</b>") +
         fact("Qty on shelf", s.qtyPerBox > 0 ? fmt(sec.qty) : "") +
-        fact("Box size (L Ãƒâ€” W Ãƒâ€” H)", [s.length, s.width, s.height].join(" Ãƒâ€” ") + " cm", true) +
+        fact("Box size (L × W × H)", [s.length, s.width, s.height].join(" × ") + " cm", true) +
         "</dl></article>";
     });
     const free = Layout.SHELF.l - rec.sections.reduce((n, s) => n + s.len, 0);
@@ -455,11 +455,11 @@ const Dashboard = (function () {
   // only when a box can go on a shelf at all. Null when one may be added,
   // otherwise why not.
   function whyNoLocation(r) {
-    if (!r.counted) return "Fill in Qty/Box first Ã¢â‚¬â€ the boxes cannot be counted without it.";
+    if (!r.counted) return "Fill in Qty/Box first — the boxes cannot be counted without it.";
     if (r.stock <= 0) return "There is no stock in 4KB Qty.";
     if (!Allocate.hasSize(r.sku)) return "Fill in L, W and H first.";
     if (!r.perShelf) return "The box is bigger than a shelf.";
-    if (r.unplaced <= 0) return "Every box of the 4KB Qty already has a shelf Ã¢â‚¬â€ nothing left under No shelf.";
+    if (r.unplaced <= 0) return "Every box of the 4KB Qty already has a shelf — nothing left under No shelf.";
     return null;
   }
 
@@ -554,8 +554,8 @@ const Dashboard = (function () {
     const button = (key, name, e) => '<button type="button" class="cat-btn' + (state.category === key ? " on" : "") +
       '" data-cat="' + esc(key) + '"><b>' + (key === ALL ? "" : '<i style="background:' + categoryColor(key) + '"></i>') +
       esc(name) + '</b><span class="cnt">' + e.skus.toLocaleString() +
-      " SKU" + (e.skus === 1 ? "" : "s") + " Ã‚Â· " + e.shelves.toLocaleString() + " shel" + (e.shelves === 1 ? "f" : "ves") +
-      (e.attention ? ' Ã‚Â· <span class="warn">' + e.attention + " need" + (e.attention === 1 ? "s" : "") + " attention</span>" : "") +
+      " SKU" + (e.skus === 1 ? "" : "s") + " · " + e.shelves.toLocaleString() + " shel" + (e.shelves === 1 ? "f" : "ves") +
+      (e.attention ? ' · <span class="warn">' + e.attention + " need" + (e.attention === 1 ? "s" : "") + " attention</span>" : "") +
       "</span></button>";
     const total = {
       skus: state.alloc.results.length, shelves: state.alloc.locations.size,
@@ -799,7 +799,7 @@ const Dashboard = (function () {
     if (r.perShelf) facts.push(fmt(r.perShelf) + " fit on a shelf");
     facts.push(r.spots.length ? "on " + r.spots.map((p) => p.label).join(", ") : "no shelf yet");
     facts.push(vacant + " shelves vacant");
-    el.pickSub.textContent = facts.join(" Ã‚Â· ");
+    el.pickSub.textContent = facts.join(" · ");
     el.pickMap.innerHTML = mapHtml(state.picking);
     el.pickLegend.innerHTML = legendHtml(el.colorBy.value);
   }
