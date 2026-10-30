@@ -619,6 +619,25 @@ body.detail-open, body.cat-open { overflow: hidden; }
   border-radius: var(--radius); background: var(--card); color: var(--ink); box-shadow: var(--shadow);
 }
 .add-sku::backdrop { background: rgba(10, 16, 26, .45); }
+
+/* ---- a question before a change ---- */
+.ask {
+  width: min(480px, calc(100vw - 32px)); padding: 20px 22px; border: 1px solid var(--line);
+  border-radius: var(--radius); background: var(--card); color: var(--ink);
+  box-shadow: 0 2px 6px rgba(16, 26, 40, .12), 0 18px 48px rgba(16, 26, 40, .35);
+}
+.ask::backdrop { background: rgba(10, 16, 26, .5); }
+.ask h3 { margin: 0 0 10px; font-size: 18px; }
+.ask-body { font-size: 13.5px; line-height: 1.5; }
+.ask-body p { margin: 0 0 10px; }
+.ask-list { margin: 0 0 10px; padding: 0; list-style: none; border: 1px solid var(--line); border-radius: 8px; }
+.ask-list li { display: flex; align-items: center; gap: 8px; padding: 7px 10px; border-top: 1px solid var(--line); }
+.ask-list li:first-child { border-top: 0; }
+.ask-list li b { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ask-list li .sub { flex: none; }
+.ask-list li.new { background: color-mix(in srgb, var(--accent) 10%, transparent); }
+.ask .row-btns { justify-content: flex-end; margin-top: 16px; }
+.ask button.danger { background: var(--bad); border-color: var(--bad); color: #fff; }
 .add-sku h3 { margin: 0 0 14px; font-size: 18px; }
 .add-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px 14px; }
 .add-grid .wide { grid-column: 1 / -1; }

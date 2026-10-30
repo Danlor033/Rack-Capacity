@@ -28,7 +28,8 @@ const Dashboard = (function () {
     mapLegend: $("mapLegend"),
     catStats: $("catStats"), catModal: $("catModal"), catTitle: $("catTitle"), catClose: $("catClose"), catAdd: $("catAdd"), catBody: $("catBody"),
     skuDialog: $("skuDialog"), skuForm: $("skuForm"), skuFormError: $("skuFormError"),
-    skuCancel: $("skuCancel"), catOptions: $("catOptions"), tierOptions: $("tierOptions"),
+    skuCancel: $("skuCancel"),
+    askDialog: $("askDialog"), askTitle: $("askTitle"), askBody: $("askBody"), askYes: $("askYes"), askNo: $("askNo"), catOptions: $("catOptions"), tierOptions: $("tierOptions"),
   };
 
   const state = {
@@ -630,7 +631,7 @@ const Dashboard = (function () {
   // Esc closes the window on top: the shelf, then the category. The Add SKU
   // form closes itself.
   document.addEventListener("keydown", function (e) {
-    if (e.key !== "Escape" || el.skuDialog.open) return;
+    if (e.key !== "Escape" || el.skuDialog.open || el.askDialog.open) return;
     if (!el.detail.hidden) closeDetail();
     else if (!el.pickModal.hidden) closePicker();
     else if (!el.catModal.hidden) closeCategory();
@@ -671,6 +672,36 @@ const Dashboard = (function () {
     renderMap();
     if (r.spots.length) select(r.spots[0].label, true);
   });
+
+  // --- asking first ----------------------------------------------------------
+
+  // A question in a window of its own, over everything else. Resolves true
+  // for the confirm button, false for Cancel, Esc or clicking outside.
+  function ask(opts) {
+    return new Promise(function (resolve) {
+      el.askTitle.textContent = opts.title;
+      el.askBody.innerHTML = opts.body;
+      el.askYes.textContent = opts.yes || "OK";
+      el.askYes.classList.toggle("danger", !!opts.danger);
+      el.askDialog.returnValue = "";
+      el.askDialog.addEventListener("close", function done() {
+        el.askDialog.removeEventListener("close", done);
+        resolve(el.askDialog.returnValue === "yes");
+      });
+      el.askDialog.showModal();
+      el.askNo.focus();
+    });
+  }
+  el.askDialog.addEventListener("click", function (e) {
+    if (e.target === el.askDialog) el.askDialog.close("no");
+  });
+
+  // One SKU as a line in a question: colour, code, and what it has there.
+  function askLine(index, note, isNew) {
+    const s = state.data.skus[index];
+    return '<li' + (isNew ? ' class="new"' : "") + '><i class="cat-dot" style="background:' + categoryColor(s.category) + '"></i>' +
+      "<b>" + esc(s.sku) + '</b><span class="sub">' + note + "</span></li>";
+  }
 
   // --- choosing shelves -------------------------------------------------------
 
@@ -740,6 +771,22 @@ const Dashboard = (function () {
       status();
       return;
     }
+    const rec = state.alloc.locations.get(label);
+    if (rec) {
+      const room = roomFor(rec, index);
+      const boxes = r.counted ? Math.min(room, Math.max(0, r.unplaced)) : 0;
+      const n = rec.sections.length + 1;
+      const ok = await ask({
+        title: "Mix " + n + " SKUs in " + label + "?",
+        body: "<p>" + label + " already holds:</p><ul class=\"ask-list\">" +
+          rec.sections.map((sec) => askLine(sec.sku, fmt(sec.boxes) + " box" + (sec.boxes === 1 ? "" : "es"))).join("") +
+          askLine(index, r.counted ? "+ " + fmt(boxes) + " box" + (boxes === 1 ? "" : "es") : "no qty per box", true) + "</ul>" +
+          "<p>" + esc(r.sku.sku) + " goes in beside " + (rec.sections.length === 1 ? "it" : "them") + ", in the " +
+          Math.round(rec.free) + " cm of shelf still free.</p>",
+        yes: "Mix them",
+      });
+      if (!ok) return;
+    }
     failed = null;
     saving++;
     status();
@@ -760,7 +807,21 @@ const Dashboard = (function () {
 
   async function freeShelf(label, index) {
     const r = state.alloc.results[index];
-    if (!r || !confirm("Take " + r.sku.sku + " off " + label + "?")) return;
+    if (!r) return;
+    const rec = state.alloc.locations.get(label);
+    const mine = rec ? rec.sections.find((sec) => sec.sku === index) : null;
+    const others = rec ? rec.sections.filter((sec) => sec.sku !== index) : [];
+    const ok = await ask({
+      title: "Delete location " + label + "?",
+      body: '<ul class="ask-list">' + askLine(index, mine ? fmt(mine.boxes) + " box" + (mine.boxes === 1 ? "" : "es") + " here" : "") + "</ul>" +
+        "<p>" + esc(r.sku.sku) + " is taken off " + label + "." +
+        (others.length ? " The " + (others.length === 1 ? "other SKU stays" : others.length + " other SKUs stay") + " on it."
+          : " The shelf will be vacant.") +
+        (mine && mine.boxes ? " Its " + fmt(mine.boxes) + " box" + (mine.boxes === 1 ? "" : "es") + " go back under <em>No shelf</em>." : "") + "</p>",
+      yes: "Delete",
+      danger: true,
+    });
+    if (!ok) return;
     failed = null;
     saving++;
     status();

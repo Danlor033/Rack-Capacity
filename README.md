@@ -67,8 +67,8 @@ the *Locations* column of the SKU list:
 - **+ Select location** opens the rack map for that SKU: vacant shelves
   outlined green, occupied ones in their SKU's colour, and the SKU's own
   shelves ringed. Clicking a shelf puts the SKU on it at once.
-- An **occupied** shelf is shared: the SKU goes in beside what is already
-  there, without asking. Choices are worked through in the order they were
+- An **occupied** shelf is shared: a window lists what is already on it
+  and asks before the SKU goes in beside them. Choices are worked through in the order they were
   made; each SKU puts as many of its boxes as fit in the room still free on
   the shelf, in a slice front to back, full height. A shelf with no room
   left for at least one of the SKU's boxes is shown hatched as *Full* and
@@ -80,7 +80,8 @@ the *Locations* column of the SKU list:
   and the SKU is marked *needs more shelves* (or *pick a location*).
 - Each location shows the boxes and qty this SKU has there, *mixed* when
   the shelf is shared, a copy button for the label, and an **×** that takes
-  this SKU off the shelf (anything else on it stays).
+  this SKU off the shelf after a confirmation window (anything else on it
+  stays).
 
 Choices are saved for everyone, in the `rack_shelves` table: one row per SKU
 on a shelf.
