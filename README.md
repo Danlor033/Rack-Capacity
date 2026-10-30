@@ -158,8 +158,10 @@ how many boxes you have — how many racks that needs.
   Those three edges are drawn thick in their colour, over everything (never
   hidden behind another box), a line runs from each to its tag, and a white
   dot marks the corner where they meet.
-  Each orientation is labelled at a different corner. The shelf window on
-  the Racks page labels one box per SKU, however its boxes are turned.
+  One box is labelled for each way the boxes are turned (per SKU in the
+  shelf window on the Racks page): the first is the top box nearest the
+  starting view, each next one the box of its kind furthest from those
+  already labelled, so two labelled boxes never sit side by side.
 - **Plan** — the rack from above, cut through at the slider's height. This is
   the drawing to hand to somebody on the floor.
 

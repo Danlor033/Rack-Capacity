@@ -240,27 +240,43 @@ const View3D = (function () {
       ];
 
       if (opts.dims) {
-        // One labelled box per kind: per SKU when the boxes belong to SKUs
-        // (opts.group), otherwise per way the box is turned. Each kind gets a
-        // corner of its own -- near right, near left, far right, far left --
-        // and its highest box there, so the tags of two kinds stay apart.
-        const CORNERS = [[1, 1], [0, 1], [1, 0], [0, 0]];
-        const kindOf = (p) => (opts.group ? "g" + opts.group(p) : "o" + p.oi);
-        const kinds = [];
+        // One labelled box for each way the boxes are turned (per SKU, when
+        // they belong to SKUs). The first is the top box nearest the starting
+        // view; every next one is the box of its kind furthest from those
+        // already picked, so two labelled boxes are never side by side. Each
+        // is labelled at its corner facing out of the rack.
+        const kindOf = (p) => (opts.group ? opts.group(p) + "|" : "") + p.oi;
+        const byKind = new Map();
         for (const p of placements) {
           const key = kindOf(p);
-          if (kinds.indexOf(key) < 0) kinds.push(key);
+          if (!byKind.has(key)) byKind.set(key, []);
+          byKind.get(key).push(p);
         }
-        const pick = new Map();
+        const centre = (p) => new THREE.Vector3(p.x + p.l / 2, p.y + p.w / 2, p.z + p.h / 2);
+        const chosen = [];
+        for (const list of [...byKind.values()].slice(0, 6)) {
+          let best = null, bestScore = -Infinity;
+          for (const p of list) {
+            const c = centre(p);
+            // Top boxes win a near tie: their labels are not buried.
+            const score = chosen.length
+              ? Math.min(...chosen.map((q) => c.distanceTo(q.at))) + 0.25 * (p.z + p.h)
+              : p.x + p.l + p.y + p.w + p.z + p.h;
+            if (score > bestScore) { bestScore = score; best = p; }
+          }
+          if (best) chosen.push({ p: best, at: centre(best) });
+        }
+        // "Out" is away from the middle of the boxes on the shelf, not of the
+        // shelf itself, which may be half empty.
+        let lo = [Infinity, Infinity], hi = [-Infinity, -Infinity];
         for (const p of placements) {
-          const key = kindOf(p);
-          const k = kinds.indexOf(key);
-          if (k >= CORNERS.length) continue;
-          const c = CORNERS[k];
-          const reach = (c[0] ? p.x + p.l : -p.x) + (c[1] ? p.y + p.w : -p.y) + p.z + p.h;
-          const best = pick.get(key);
-          if (!best || reach > best.reach) pick.set(key, { p: p, reach: reach, c: c });
+          lo = [Math.min(lo[0], p.x), Math.min(lo[1], p.y)];
+          hi = [Math.max(hi[0], p.x + p.l), Math.max(hi[1], p.y + p.w)];
         }
+        const pick = new Map(chosen.map(function (b, i) {
+          const c = [b.at.x >= (lo[0] + hi[0]) / 2 ? 1 : 0, b.at.y >= (lo[1] + hi[1]) / 2 ? 1 : 0];
+          return [i, { p: b.p, c: c }];
+        }));
         marks = new THREE.Group();
         const lineMat = new THREE.LineBasicMaterial({ color: opts.dark ? 0xffffff : 0x111827 });
         const big = Math.max(rack.l, rack.w, rack.h);
