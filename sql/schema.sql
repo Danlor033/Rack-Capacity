@@ -111,3 +111,22 @@ alter table rack_shelves enable row level security;
 drop policy if exists rack_shelves_all on rack_shelves;
 create policy rack_shelves_all on rack_shelves
   for all to anon, authenticated using (true) with check (true);
+
+-- What an outside feed last did: one row per feed, rewritten each run.
+-- "jsterp-4kb" is the 4KB Qty from JSTERP (jstsync.js), every 30 seconds.
+create table if not exists rack_sync (
+  name       text primary key,
+  synced_at  timestamptz,
+  ok         boolean not null default true,
+  message    text,
+  info       jsonb not null default '{}'::jsonb
+);
+
+alter table rack_sync enable row level security;
+
+drop policy if exists rack_sync_all on rack_sync;
+create policy rack_sync_all on rack_sync
+  for all to anon, authenticated using (true) with check (true);
+
+-- Live changes: every open page hears about these at once.
+-- alter publication supabase_realtime add table rack_imports, rack_skus, rack_shelves, rack_sync;

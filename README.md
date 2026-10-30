@@ -235,9 +235,39 @@ picker, a shelf) stay open, and a number being typed is never overwritten.
 - The line under the page title shows a green dot and *Live* while
   connected. If the connection drops it reconnects by itself, and meanwhile
   the page checks for changes every 20 seconds.
-- The tables on the live channel: rack_skus, rack_shelves, rack_imports
-  (Supabase publication supabase_realtime).
+- The tables on the live channel: rack_skus, rack_shelves, rack_imports,
+  rack_sync (Supabase publication supabase_realtime).
 - The client library is supabase-js 2.45.4, loaded from jsDelivr.
+
+## 4KB Qty from JSTERP
+
+The 4KB Qty comes from JSTERP, **Warehouse > Zone Inventory** with owner
+Shigetsu, warehouse area Main Warehouse and start position 4KB. Each SKU's
+locations are added together; a SKU with nothing there gets 0.
+
+JSTERP only answers someone signed in to it (its login is encrypted and can
+ask for a captcha), so no server can read it on its own. Instead
+`jstsync.js` runs **inside a signed-in JSTERP tab**, started from a bookmark:
+
+1. On the Racks page, click **Set up** in the 4KB Qty line under the title
+   and drag the *Rack Planner 4KB sync* button to the bookmarks bar.
+2. Sign in to JSTERP and open Zone Inventory
+   (`https://asia.jsterp.com/Wms/Pack/PackItem` -- the page itself, not the
+   asia-web menu around it; the bookmark offers to go there).
+3. Click the bookmark. A box in the corner shows each run. Leave the tab
+   open -- best on a PC that is always on. One tab serves everybody.
+
+Every 30 seconds it reads the list, writes any 4KB Qty that changed into
+`rack_skus`, and leaves a note in `rack_sync` (name `jsterp-4kb`). Every
+Racks page shows that note under the title, live, and turns it orange when
+the last one is over two minutes old or the run failed (signed out of
+JSTERP, usually: sign in and click the bookmark again).
+
+The bookmark always loads `jstsync.js` from the online copy
+(rack-planner-acce.pages.dev): JSTERP is https and will not run a script
+from the office's plain-http address. The JSTERP filter ids (owner
+Shigetsu = LinkCoIds 12697134 / LinkWarehouseIds 3948, warehouse 3938) are
+at the top of `jstsync.js`.
 
 ## Sharing through Supabase
 
@@ -260,6 +290,7 @@ change if the app ever gains a login.
 | `layout.js` | The 4KB rows, columns, layers and labels, and the fill orders. |
 | `allocate.js` | How many of a SKU's boxes go on each shelf it was given. No DOM -- testable on its own. |
 | `excel.js` | The put-away export (SheetJS). Also an unused sheet reader, from when there was an Import page. |
+| `jstsync.js` | Not loaded by the app: run in a JSTERP tab from a bookmark, it copies the 4KB Qty from Zone Inventory every 30 seconds. |
 | `soldsheet.js` | Reads sold per day from the Google Sheet (column D, by the SKU in column A). |
 | `dashboard.js` | The racks page: map, shelf detail, SKU list by category, adding and removing SKUs, rules. |
 | `pages.js` | Switching between Racks and Calculator. |
