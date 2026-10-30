@@ -213,7 +213,7 @@ const View3D = (function () {
     }
 
     // The rack's own size along its three edges, and on one box of each
-    // kind (each way it is turned, per SKU) which side is L, W and H: the
+    // kind (each SKU, or each way it is turned) which side is L, W and H: the
     // box nearest the starting view, outlined, its three edges at one corner
     // drawn in their side's colour, the corner marked, and a line from each
     // edge out to its tag.
@@ -234,24 +234,26 @@ const View3D = (function () {
       // Just outside and below the two near bottom edges, and beside the
       // upright at the left, so they stay clear of the boxes and each other.
       const list = [
-        { at: at(rack.l / 2, rack.w + out, -out), text: what + " length " + fmt(rack.l), cls: "v3d-rack" },
+        { at: at(rack.l * 0.18, rack.w + out, -out), text: what + " length " + fmt(rack.l), cls: "v3d-rack" },
         { at: at(rack.l + out, rack.w * 0.3, -out), text: what + " width " + fmt(rack.w), cls: "v3d-rack" },
         { at: at(-out, rack.w, rack.h / 2), text: what + " height " + fmt(rack.h), cls: "v3d-rack" },
       ];
 
       if (opts.dims) {
-        // Each kind gets a corner of its own -- near right, near left, far
-        // right, far left -- and its highest box there, so the tags of two
-        // kinds do not land on top of each other.
+        // One labelled box per kind: per SKU when the boxes belong to SKUs
+        // (opts.group), otherwise per way the box is turned. Each kind gets a
+        // corner of its own -- near right, near left, far right, far left --
+        // and its highest box there, so the tags of two kinds stay apart.
         const CORNERS = [[1, 1], [0, 1], [1, 0], [0, 0]];
+        const kindOf = (p) => (opts.group ? "g" + opts.group(p) : "o" + p.oi);
         const kinds = [];
         for (const p of placements) {
-          const key = (opts.group ? opts.group(p) : "") + "|" + p.oi;
+          const key = kindOf(p);
           if (kinds.indexOf(key) < 0) kinds.push(key);
         }
         const pick = new Map();
         for (const p of placements) {
-          const key = (opts.group ? opts.group(p) : "") + "|" + p.oi;
+          const key = kindOf(p);
           const k = kinds.indexOf(key);
           if (k >= CORNERS.length) continue;
           const c = CORNERS[k];
