@@ -535,6 +535,8 @@ body.detail-open, body.cat-open { overflow: hidden; }
 .sold-sync a { color: var(--accent); text-decoration: none; }
 .sold-sync a:hover { text-decoration: underline; }
 .sold-sync.bad-text a { color: inherit; text-decoration: underline; }
+.days-field { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--ink-soft); white-space: nowrap; }
+.days-field input { width: 72px; }
 
 /* The SKU list in the category window: fixed columns, so every heading
    sits exactly over its numbers and no row is taller than another. */

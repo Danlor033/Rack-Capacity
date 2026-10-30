@@ -14,7 +14,7 @@ const Allocate = (function () {
 
   const DEFAULT_RULES = {
     turn: "any",     // "any" | "upright"
-    days: 15,        // no longer used: boxes come from the 4KB Qty
+    days: 15,        // days of sales 4KB holds stock for
   };
 
   function text(v) {
@@ -57,20 +57,29 @@ const Allocate = (function () {
     return known.concat(rest);
   }
 
-  // What 4KB has to hold for a SKU: its 4KB Qty. Sold per day is shown but
-  // does not change the count.
-  function neededQty(s) {
-    return num(s.quantity);
+  // What 4KB has to hold for a SKU: enough to sell from for `days` days.
+  function neededQty(s, days) {
+    return num(s.soldPerDay) * days;
   }
 
   // How many boxes that comes to, or null when it cannot be known because
   // nobody has said how many units a box holds. Rounded up: a part-full
   // carton still takes a whole carton's room on the shelf.
-  function boxesWanted(s) {
-    const needed = neededQty(s);
+  function boxesWanted(s, days) {
+    const needed = neededQty(s, days);
     const perBox = num(s.qtyPerBox);
     if (perBox <= 0) return needed > 0 ? null : 0;
     return Math.max(0, Math.ceil(needed / perBox - EPS));
+  }
+
+  // The boxes 4KB actually has for a SKU: its 4KB Qty in boxes, rounded up.
+  // These are what go on shelves, so No shelf counts down from here. Null
+  // when there is stock but no Qty per box.
+  function stockBoxes(s) {
+    const qty = num(s.quantity);
+    const perBox = num(s.qtyPerBox);
+    if (perBox <= 0) return qty > 0 ? null : 0;
+    return Math.max(0, Math.ceil(qty / perBox - EPS));
   }
 
   function hasSize(s) {
@@ -86,6 +95,8 @@ const Allocate = (function () {
   function place(skus, shelves, rulesIn) {
     const rules = Object.assign({}, DEFAULT_RULES, rulesIn || {});
     const shelf = Layout.SHELF;
+    const days = num(rules.days) > 0 ? rules.days : DEFAULT_RULES.days;
+    rules.days = days;
 
     const cache = new Map();
     function packIn(length, box) {
@@ -100,10 +111,12 @@ const Allocate = (function () {
 
     const spotOf = new Map(Layout.all().map((s) => [s.label, s]));
     const results = skus.map(function (s, i) {
-      const wanted = boxesWanted(s);
+      const wanted = boxesWanted(s, days);
+      const stock = stockBoxes(s);
       return {
-        index: i, order: i, sku: s, needed: neededQty(s),
-        wanted: wanted === null ? 0 : wanted, counted: wanted !== null, placed: 0, unplaced: 0,
+        index: i, order: i, sku: s, needed: neededQty(s, days),
+        wanted: wanted === null ? 0 : wanted, stock: stock === null ? 0 : stock,
+        counted: stock !== null && wanted !== null, placed: 0, unplaced: 0,
         perShelf: 0, spots: [], problem: null,
       };
     });
@@ -124,7 +137,7 @@ const Allocate = (function () {
     }
 
     const byId = new Map(results.map((r) => [String(r.sku.id), r]));
-    const left = new Map(results.map((r) => [r, r.counted ? r.wanted : 0]));
+    const left = new Map(results.map((r) => [r, r.counted ? r.stock : 0]));
     for (const r of results) r.perShelf = hasSize(r.sku) ? packIn(shelf.l, boxOf(r.sku)).count : 0;
 
     const locations = new Map();
@@ -158,10 +171,10 @@ const Allocate = (function () {
     for (const r of results) {
       const s = r.sku;
       const remaining = left.get(r);
-      r.placed = (r.counted ? r.wanted : 0) - remaining;
+      r.placed = (r.counted ? r.stock : 0) - remaining;
       r.unplaced = remaining;
       if (!r.counted) r.problem = "no-count";
-      else if (r.wanted <= 0) r.problem = "none-needed";
+      else if (r.stock <= 0) r.problem = "no-stock";
       else if (!hasSize(s)) r.problem = "no-size";
       else if (!r.perShelf) r.problem = "too-big";
       else if (remaining > 0) r.problem = r.spots.length ? "short" : "no-location";
@@ -186,10 +199,11 @@ const Allocate = (function () {
       shelves: Layout.count,
       shelvesUsed: locations.size,
       skus: skus.length,
-      skusNeeding: counted.filter((r) => r.wanted > 0).length,
-      skusPlaced: counted.filter((r) => r.wanted > 0 && r.unplaced === 0 && r.placed > 0).length,
+      skusNeeding: counted.filter((r) => r.stock > 0).length,
+      skusPlaced: counted.filter((r) => r.stock > 0 && r.unplaced === 0 && r.placed > 0).length,
       skusNoCount: results.filter((r) => r.problem === "no-count").length,
       boxesWanted: counted.reduce((n, r) => n + r.wanted, 0),
+      boxesStock: counted.reduce((n, r) => n + r.stock, 0),
       boxesPlaced: results.reduce((n, r) => n + r.placed, 0),
       boxesUnplaced: results.reduce((n, r) => n + r.unplaced, 0),
       fill: boxVolume / (shelfVolume * Layout.count),
@@ -225,6 +239,7 @@ const Allocate = (function () {
     place: place,
     placementsOn: placementsOn,
     boxesWanted: boxesWanted,
+    stockBoxes: stockBoxes,
     neededQty: neededQty,
     tierOrder: tierOrder,
     compareText: compareText,

@@ -21,7 +21,7 @@ const Dashboard = (function () {
     dLabel: $("dLabel"), dWhere: $("dWhere"), dCanvas: $("dCanvas"), dTable: $("dTable"),
     skuFilter: $("skuFilter"), skuTable: $("skuTable"),
     gap: $("dataGap"), gapText: $("dataGapText"), gapShow: $("dataGapShow"),
-    skuStatus: $("skuStatus"),
+    ruleDays: $("ruleDays"), skuStatus: $("skuStatus"),
     catList: $("catList"), catHint: $("catHint"), skuAdd: $("skuAdd"),
     pickModal: $("pickModal"), pickTitle: $("pickTitle"), pickSub: $("pickSub"),
     pickMap: $("pickMap"), pickClose: $("pickClose"), pickLegend: $("pickLegend"), pickHint: $("pickHint"),
@@ -133,6 +133,7 @@ const Dashboard = (function () {
     el.empty.hidden = true;
     el.dash.hidden = false;
     state.rules = Object.assign({}, Allocate.DEFAULT_RULES, (state.data.import && state.data.import.rules) || {});
+    el.ruleDays.value = state.rules.days;
 
     buildColors();
     recompute();
@@ -164,20 +165,20 @@ const Dashboard = (function () {
     const cats = new Set(state.data.skus.map((k) => k.category || ""));
     el.source.textContent = s.skus.toLocaleString() + " SKUs in " + cats.size + " categor" + (cats.size === 1 ? "y" : "ies");
     el.kShelves.textContent = s.shelvesUsed + " / " + s.shelves;
-    el.kBoxes.textContent = s.boxesPlaced.toLocaleString() + " / " + s.boxesWanted.toLocaleString();
+    el.kBoxes.textContent = s.boxesPlaced.toLocaleString() + " / " + s.boxesStock.toLocaleString();
     el.kMiss.textContent = s.boxesUnplaced.toLocaleString();
     el.kMissWrap.classList.toggle("bad", s.boxesUnplaced > 0);
     el.kSkus.textContent = s.skusPlaced + " / " + s.skusNeeding;
     el.kFill.textContent = pct(s.fill);
 
-    // SKUs with a 4KB Qty but no box count: the racks cannot
+    // SKUs with stock in 4KB Qty but no box count: the racks cannot
     // hold what nobody has said the size of. Easy to miss in a table, so it
     // is said up front.
     if (s.skusNoCount) {
       const units = state.alloc.results.filter((r) => r.problem === "no-count")
-        .reduce((n, r) => n + r.needed, 0);
-      el.gapText.innerHTML = "<b>" + s.skusNoCount + " SKUs</b> have a 4KB Qty (" + units.toLocaleString() +
-        " units) but no <em>Qty per box</em>, so their boxes " +
+        .reduce((n, r) => n + (Number(r.sku.quantity) || 0), 0);
+      el.gapText.innerHTML = "<b>" + s.skusNoCount + " SKUs</b> have stock (" + units.toLocaleString() +
+        " units in 4KB Qty) but no <em>Qty per box</em>, so their boxes " +
         "cannot be counted and the racks have no room set aside for them. Click <em>Show them</em> to fill it in.";
       el.gap.hidden = false;
     } else {
@@ -349,7 +350,7 @@ const Dashboard = (function () {
     "no-size": "box size missing",
     "no-location": "pick a location",
     "short": "needs more shelves",
-    "none-needed": "no boxes needed",
+    "no-stock": "no 4KB Qty",
     "no-count": "no qty per box",
   };
   const ATTENTION = ["too-big", "no-size", "no-location", "short", "no-count"];
@@ -361,13 +362,13 @@ const Dashboard = (function () {
   const COLUMNS = [
     { head: "4KB Qty", w: 72, fixed: "quantity" },
     { head: "Sold/Day", w: 70, worked: "sold", title: "Live from the Google Sheet, column D" },
-    { head: "Needed", w: 68, worked: "needed", title: "The 4KB Qty" },
+    { head: "Needed", w: 68, worked: "needed", title: "Sold per day \u00d7 days of stock" },
     { head: "Qty/Box", w: 72, edit: "qtyPerBox" },
     { head: "Boxes", w: 56, worked: "boxes", title: "Needed \u00f7 Qty/Box, rounded up" },
     { head: "Per Shelf", w: 68, worked: "perShelf", title: "Boxes that fit on one empty shelf" },
     { head: "Shelf Needed", w: 92, worked: "shelvesNeeded", title: "Boxes \u00f7 Per Shelf, rounded up" },
     { head: "Placed", w: 56, worked: "placed" },
-    { head: "No shelf", w: 64, worked: "unplaced" },
+    { head: "No shelf", w: 64, worked: "unplaced", title: "Boxes of the 4KB Qty (4KB Qty \u00f7 Qty/Box, rounded up) not on a shelf yet" },
     { head: "L", w: 54, edit: "length" },
     { head: "W", w: 54, edit: "width" },
     { head: "H", w: 54, edit: "height" },
@@ -379,7 +380,7 @@ const Dashboard = (function () {
   function wanting(r, key) {
     const s = r.sku;
     if (key === "qtyPerBox") return r.problem === "no-count";
-    if (key === "length" || key === "width" || key === "height") return r.problem === "no-size" || !(s[key] > 0) && r.needed > 0;
+    if (key === "length" || key === "width" || key === "height") return r.problem === "no-size" || !(s[key] > 0) && s.soldPerDay > 0;
     return false;
   }
 
@@ -423,7 +424,7 @@ const Dashboard = (function () {
         (perBox ? " \u00b7 " + fmt(p.boxes * perBox) + " qty" : "") + "</span>" +
         // A shelf that filled up before this SKU got any room on it, for
         // instance when the SKU before it was given its qty per box later.
-        (!p.boxes && r.counted && r.wanted > 0 && r.perShelf
+        (!p.boxes && r.counted && r.stock > 0 && r.perShelf
           ? '<span class="loc-noroom" title="The shelf is full: none of this SKU\u2019s boxes fit. Delete this location.">no room</span>'
           : shared ? '<span class="loc-mixed" title="Shared with other SKUs">mixed</span>' : "") +
         '<span class="loc-acts"><button type="button" class="copy-btn" data-copy="' + p.label + '" title="Copy location" aria-label="Copy ' + p.label + '">' + COPY_ICON + "</button>" +
@@ -431,7 +432,7 @@ const Dashboard = (function () {
     }).join("");
     const total = r.spots.length > 1 && perBox
       ? '<span class="loc-total">Total ' + fmt(r.placed) + " boxes \u00b7 " + fmt(r.placed * perBox) + " qty</span>" : "";
-    const note = r.problem && r.problem !== "none-needed"
+    const note = r.problem
       ? '<span class="tag' + (needsAttention(r) ? " bad" : "") + '">' + WHY[r.problem] + "</span>" : "";
     const why = whyNoLocation(r);
     return where + total + '<span class="loc-foot"><button type="button" class="ghost small loc-pick" data-pick="' + r.index + '"' +
@@ -443,10 +444,10 @@ const Dashboard = (function () {
   // otherwise why not.
   function whyNoLocation(r) {
     if (!r.counted) return "Fill in Qty/Box first — the boxes cannot be counted without it.";
-    if (r.wanted <= 0) return "No boxes are needed.";
+    if (r.stock <= 0) return "There is no stock in 4KB Qty.";
     if (!Allocate.hasSize(r.sku)) return "Fill in L, W and H first.";
     if (!r.perShelf) return "The box is bigger than a shelf.";
-    if (r.unplaced <= 0) return "Every box already has a shelf — nothing left under No shelf.";
+    if (r.unplaced <= 0) return "Every box of the 4KB Qty already has a shelf — nothing left under No shelf.";
     return null;
   }
 
@@ -580,11 +581,12 @@ const Dashboard = (function () {
         return true;
       });
 
+    const days = state.rules.days;
     const widths = [40, 80, 100, 240].concat(COLUMNS.map((c) => c.w));
     let html = "<colgroup>" + widths.map((w) => (w ? '<col style="width:' + w + 'px">' : "<col>")).join("") + "</colgroup>" +
       "<thead><tr><th>#</th><th>Tier</th><th>Category</th><th>SKU</th>" +
       COLUMNS.map(function (c) {
-        const title = c.title;
+        const title = c.worked === "needed" ? "Sold per day \u00d7 " + days + " days" : c.title;
         return "<th" + (title ? ' title="' + title + '"' : "") + ">" + c.head + "</th>";
       }).join("") + "</tr></thead><tbody>";
     // # counts down this list from 1, whatever is open.
@@ -953,6 +955,27 @@ const Dashboard = (function () {
   });
   el.skuFilter.addEventListener("change", renderSkus);
 
+  // The days of stock re-lay the racks at once and are saved for everyone.
+  // The other rules are no longer on the page; the ones saved with the
+  // list still apply.
+  let saveTimer = null;
+  function ruleChanged() {
+    const days = Math.round(Number(el.ruleDays.value));
+    state.rules = Object.assign({}, state.rules, {
+      days: days >= 1 && days <= 365 ? days : state.rules.days,
+    });
+    el.ruleDays.value = state.rules.days;
+    recompute();
+    clearTimeout(saveTimer);
+    saveTimer = setTimeout(function () {
+      ensureImport()
+        .then((head) => DB.imports.setRules(head.id, state.rules))
+        .then(function () { state.data.import.rules = state.rules; })
+        .catch(function (e) { console.error(e); alert("The new rules could not be saved: " + e.message); });
+    }, 400);
+  }
+  el.ruleDays.addEventListener("change", ruleChanged);
+
   function openCategory(key, filter) {
     state.category = key;
     el.skuFilter.value = filter || "all";
@@ -1120,8 +1143,8 @@ const Dashboard = (function () {
 
   // --- changes made by others, as they happen ----------------------------------
 
-  // Every open page hears about a change to a SKU or a shelf choice the
-  // moment it is saved, by anybody, and redraws with it. Changes
+  // Every open page hears about a change to a SKU, a shelf choice or the days
+  // of stock the moment it is saved, by anybody, and redraws with it. Changes
   // arriving together are taken in one go. What is being typed in a box is
   // never overwritten. If the live connection drops, the page checks every
   // 20 seconds instead until it is back.
@@ -1204,7 +1227,14 @@ const Dashboard = (function () {
           state.picking = state.data.skus.indexOf(picking);
           if (state.picking < 0) closePicker();
         }
+        // The days of stock, set by somebody else.
         state.data.import.rules = data.import.rules || {};
+        const days = Object.assign({}, Allocate.DEFAULT_RULES, state.data.import.rules).days;
+        if (days !== state.rules.days) {
+          state.rules = Object.assign({}, state.rules, { days: days });
+          if (document.activeElement !== el.ruleDays) el.ruleDays.value = days;
+          redraw = true;
+        }
       }
       if (want.has("shelves")) state.data.shelves = await DB.shelves.list(state.data.import.id);
       if (redraw) {
