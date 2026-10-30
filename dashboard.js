@@ -359,34 +359,36 @@ const Dashboard = (function () {
 
   const WHY = {
     "too-big": "box is bigger than a shelf",
-    "no-size": "box size missing",
+    "no-size": "no L / W / H",
     "no-location": "pick a location",
     "short": "needs more shelves",
     "no-stock": "no 4KB Qty",
     "no-count": "no qty per box",
   };
   const ATTENTION = ["too-big", "no-size", "no-location", "short", "no-count"];
+  // Problems that stop a location being picked at all.
+  const BLOCKERS = ["too-big", "no-size", "no-count", "no-stock"];
 
-  // The SKU list's columns after #, Tier, Category and SKU, in order.
-  // "fixed" shows a SKU number, "edit" makes it editable in place, and the
-  // rest are worked out (see worked()). w is the width in px; Locations
-  // takes what is left.
+  // The SKU list's columns after #, Tier, (Category,) SKU, in order, under
+  // the heading of their group. "edit" makes a number editable in place; the
+  // rest are worked out (see worked()) and kept up to date where they stand.
+  // w is the width in px; SKU and Locations share what is left.
   const COLUMNS = [
-    { head: "4KB Qty", w: 66, fixed: "quantity" },
-    { head: "Sold/Day", w: 60, worked: "sold", title: "Live from the Google Sheet, column D" },
-    { head: "Needed", w: 66, worked: "needed", title: "Sold per day \u00d7 days of stock" },
-    { head: "Qty/Box", w: 62, edit: "qtyPerBox" },
-    { head: "Boxes", w: 54, worked: "boxes", title: "4KB Qty \u00f7 Qty/Box, rounded up" },
-    { head: "Per Shelf", w: 54, worked: "perShelf", title: "Boxes that fit on one empty shelf" },
-    { head: "Shelf Needed", w: 58, worked: "shelvesNeeded", title: "Boxes \u00f7 Per Shelf, rounded up" },
-    { head: "Placed", w: 56, worked: "placed" },
-    { head: "No shelf", w: 58, worked: "unplaced", title: "Boxes of the 4KB Qty (4KB Qty \u00f7 Qty/Box, rounded up) not on a shelf yet" },
-    { head: "L", w: 52, edit: "length" },
-    { head: "W", w: 52, edit: "width" },
-    { head: "H", w: 52, edit: "height" },
+    { group: "4KB stock vs sales", head: "4KB Qty", w: 66, worked: "quantity", title: "From JSTERP Zone Inventory, every 30 seconds" },
+    { group: "4KB stock vs sales", head: "Sold/Day", w: 60, worked: "sold", title: "Live from the Google Sheet, column D" },
+    { group: "4KB stock vs sales", head: "Needed", w: 66, worked: "needed", title: "Sold per day \u00d7 days of stock" },
+    { group: "Boxes", head: "Qty/Box", w: 62, edit: "qtyPerBox" },
+    { group: "Boxes", head: "Boxes", w: 54, worked: "boxes", title: "4KB Qty \u00f7 Qty/Box, rounded up" },
+    { group: "Boxes", head: "Per Shelf", w: 54, worked: "perShelf", title: "Boxes that fit on one empty shelf" },
+    { group: "Boxes", head: "Shelf Needed", w: 58, worked: "shelvesNeeded", title: "Boxes \u00f7 Per Shelf, rounded up" },
+    { group: "On shelves", head: "Placed", w: 56, worked: "placed", title: "Boxes already on a shelf" },
+    { group: "On shelves", head: "No shelf", w: 58, worked: "unplaced", title: "Boxes of the 4KB Qty not on a shelf yet" },
+    { group: "Box size (cm)", head: "L", w: 48, edit: "length" },
+    { group: "Box size (cm)", head: "W", w: 48, edit: "width" },
+    { group: "Box size (cm)", head: "H", w: 48, edit: "height" },
     { head: "Locations", w: 0, worked: "locations", cls: "locs" },
+    { head: "Remarks", w: 92, worked: "remark", title: "4KB Qty \u2212 Needed: green is over quantity, red is insufficient" },
   ];
-  const LEAD = 4; // #, Tier, Category, SKU
 
   // A box that is empty but needed for this SKU to get a shelf.
   function wanting(r, key) {
@@ -444,11 +446,15 @@ const Dashboard = (function () {
     }).join("");
     const total = r.spots.length > 1 && perBox
       ? '<span class="loc-total">Total ' + fmt(r.placed) + " boxes \u00b7 " + fmt(r.placedQty) + " qty</span>" : "";
-    const note = r.problem
-      ? '<span class="tag' + (needsAttention(r) ? " bad" : "") + '">' + WHY[r.problem] + "</span>" : "";
+    // What keeps the SKU off the shelves, if anything; otherwise the button
+    // when boxes are still waiting. A red No shelf count already says that
+    // a location is wanted, so no tag repeats it.
     const why = whyNoLocation(r);
-    return where + total + '<span class="loc-foot"><button type="button" class="ghost small loc-pick" data-pick="' + r.index + '"' +
-      (why ? ' disabled title="' + esc(why) + '"' : "") + ">+ Select location</button>" + note + "</span>";
+    const blocked = BLOCKERS.indexOf(r.problem) >= 0;
+    const foot = !why
+      ? '<button type="button" class="ghost small loc-pick" data-pick="' + r.index + '">+ Select location</button>'
+      : blocked ? '<span class="tag' + (needsAttention(r) ? " bad" : "") + '" title="' + esc(why) + '">' + WHY[r.problem] + "</span>" : "";
+    return where + total + (foot ? '<span class="loc-foot">' + foot + "</span>" : "");
   }
 
   // Another location is only for boxes still waiting under No shelf, and
@@ -463,10 +469,27 @@ const Dashboard = (function () {
     return null;
   }
 
+  // 4KB stock against what sales need: + over quantity (green), - short
+  // (red). Nothing when neither number is there.
+  function remarkHtml(r) {
+    const qty = Number(r.sku.quantity) || 0;
+    if (!qty && !r.needed) return "";
+    const diff = Math.round((qty - r.needed) * 100) / 100;
+    if (diff === 0) return '<span class="remark even" title="4KB Qty matches what is needed">0</span>';
+    const over = diff > 0;
+    const title = over
+      ? "Over quantity: 4KB has " + fmt(diff) + " more than needed (" + fmt(qty) + " in 4KB, " + fmt(r.needed) + " needed)"
+      : "Insufficient qty: 4KB is " + fmt(-diff) + " short of needed (" + fmt(qty) + " in 4KB, " + fmt(r.needed) + " needed)";
+    return '<span class="remark ' + (over ? "over" : "short") + '" title="' + title + '">' +
+      (over ? "+" : "\u2212") + fmt(Math.abs(diff)) + "</span>";
+  }
+
   // The value of one worked-out column for a SKU.
   function worked(key, r) {
     switch (key) {
+      case "quantity": return fmt(r.sku.quantity);
       case "sold": return fmt(r.sku.soldPerDay);
+      case "remark": return remarkHtml(r);
       case "needed": return fmt(r.needed);
       case "boxes": return "<b>" + (r.problem === "no-count" ? "?" : fmt(r.stock)) + "</b>";
       case "perShelf": return r.perShelf ? fmt(r.perShelf) : "";
@@ -482,19 +505,16 @@ const Dashboard = (function () {
   // brought up to date and nothing else is touched. Rebuilding the whole
   // list -- some 1,500 inputs -- stalled every edit and replaced the box the
   // cursor had just moved on to.
-  const WORKED_CELLS = COLUMNS.map((c, i) => (c.worked ? i + LEAD : -1)).filter((i) => i >= 0);
   function updateSkus() {
     const body = el.skuTable.tBodies[0];
     if (!body) return;
     for (const tr of body.rows) {
       if (tr.dataset.sku === undefined) continue;
       const r = state.alloc.results[Number(tr.dataset.sku)];
-      WORKED_CELLS.forEach(function (c) {
-        const td = tr.cells[c];
-        const html = worked(COLUMNS[c - LEAD].worked, r);
-        if (td && td.innerHTML !== html) td.innerHTML = html;
-      });
-      tr.classList.toggle("short", needsAttention(r));
+      for (const td of tr.querySelectorAll("td[data-w]")) {
+        const html = worked(td.dataset.w, r);
+        if (td.innerHTML !== html) td.innerHTML = html;
+      }
       for (const input of tr.querySelectorAll("input[data-field]")) {
         input.classList.toggle("want", !!wanting(r, input.dataset.field));
         // A save that failed puts the old number back.
@@ -594,37 +614,54 @@ const Dashboard = (function () {
       });
 
     const days = state.rules.days;
+    // Category only when more than one is listed: inside one it says the same
+    // thing on every row.
+    const withCat = picked === ALL;
     // Narrow enough to fit the window without sideways scrolling: headings
     // and long names wrap, and SKU and Locations share what is left.
-    const widths = [36, 84, 96, 0].concat(COLUMNS.map((c) => c.w));
+    const widths = [36, 76].concat(withCat ? [96] : [], [0], COLUMNS.map((c) => c.w));
+    const lead = ["#", "Tier"].concat(withCat ? ["Category"] : [], ["SKU"]);
+    // Two heading rows: the groups, then the columns. A column starting a
+    // group gets a line on its left, all the way down.
+    const starts = COLUMNS.map((c, i) => i === 0 || c.group !== COLUMNS[i - 1].group);
+    let groups = "", heads = "";
+    COLUMNS.forEach(function (c, i) {
+      const title = c.worked === "needed" ? "Sold per day \u00d7 " + days + " days of stock" : c.title;
+      const th = (attrs, text) => "<th" + attrs + (title ? ' title="' + title + '"' : "") + ">" + text + "</th>";
+      const cls = starts[i] ? ' class="g-start"' : "";
+      if (!c.group) { groups += th(' rowspan="2"' + cls, c.head); return; }
+      if (starts[i]) {
+        const span = COLUMNS.filter((d) => d.group === c.group).length;
+        groups += '<th class="g-start g-name" colspan="' + span + '">' + c.group + "</th>";
+      }
+      heads += th(cls, c.head);
+    });
     let html = "<colgroup>" + widths.map((w) => (w ? '<col style="width:' + w + 'px">' : "<col>")).join("") + "</colgroup>" +
-      "<thead><tr><th>#</th><th>Tier</th><th>Category</th><th>SKU</th>" +
-      COLUMNS.map(function (c) {
-        const title = c.worked === "needed" ? "Sold per day \u00d7 " + days + " days" : c.title;
-        return "<th" + (title ? ' title="' + title + '"' : "") + ">" + c.head + "</th>";
-      }).join("") + "</tr></thead><tbody>";
+      '<thead><tr class="groups">' + lead.map((h) => '<th rowspan="2">' + h + "</th>").join("") + groups + "</tr>" +
+      "<tr>" + heads + "</tr></thead><tbody>";
     // # counts down this list from 1, whatever is open.
     rows.forEach(function (r, i) {
       const s = r.sku;
-      const cells = COLUMNS.map(function (c) {
-        if (c.fixed) return '<td class="num">' + fmt(s[c.fixed]) + "</td>";
+      const cells = COLUMNS.map(function (c, k) {
+        const g = starts[k] ? " g-start" : "";
         if (c.edit) {
           const v = s[c.edit];
-          return '<td class="num edit-col"><input class="cell-in' + (wanting(r, c.edit) ? " want" : "") +
+          return '<td class="num edit-col' + g + '"><input class="cell-in' + (wanting(r, c.edit) ? " want" : "") +
             '" type="number" min="0" step="any" inputmode="decimal" data-sku="' + r.index +
             '" data-field="' + c.edit + '" value="' + (v === null || v === undefined ? "" : v) + '"></td>';
         }
-        return '<td class="' + (c.cls || "num") + '">' + worked(c.worked, r) + "</td>";
+        return '<td class="' + (c.cls || "num") + g + '" data-w="' + c.worked + '">' + worked(c.worked, r) + "</td>";
       }).join("");
-      html += '<tr data-sku="' + r.index + '"' + (needsAttention(r) ? ' class="short"' : "") + ">" +
+      html += '<tr data-sku="' + r.index + '">' +
         '<td class="sub">' + (i + 1) + "</td>" +
-        '<td class="wrap">' + esc(s.tier) + '</td><td class="wrap"><i class="cat-dot" style="background:' + categoryColor(s.category) + '"></i>' + esc(s.category) +
-        '</td><td class="sku-name wrap"><span class="sku-wrap"><b>' + esc(s.sku) + "</b>" +
+        '<td class="wrap">' + esc(s.tier) + "</td>" +
+        (withCat ? '<td class="wrap"><i class="cat-dot" style="background:' + categoryColor(s.category) + '"></i>' + esc(s.category) + "</td>" : "") +
+        '<td class="sku-name wrap"><span class="sku-wrap"><b>' + esc(s.sku) + "</b>" +
         '<button type="button" class="copy-btn" data-copy="' + esc(s.sku) + '" title="Copy SKU" aria-label="Copy ' + esc(s.sku) + '">' +
         COPY_ICON + "</button></span></td>" +
         cells + "</tr>";
     });
-    if (!rows.length) html += '<tr><td colspan="17" class="sub">Nothing to show.</td></tr>';
+    if (!rows.length) html += '<tr><td colspan="' + widths.length + '" class="sub">Nothing to show.</td></tr>';
     el.skuTable.innerHTML = html + "</tbody>";
   }
 

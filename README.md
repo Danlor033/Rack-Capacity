@@ -113,9 +113,19 @@ the *Locations* column of the SKU list:
 Choices are saved for everyone, in the `rack_shelves` table: one row per SKU
 on a shelf.
 
-The list's columns, after #, Tier, Category and SKU: 4KB Qty, Sold/Day,
-Needed, Qty/Box, Boxes, Per Shelf, Shelf Needed (Boxes ÷ Per Shelf, rounded
-up), Placed, No shelf, L, W, H, Locations.
+The list's columns, after #, Tier, Category (only under *All categories*)
+and SKU, in groups:
+
+- **4KB stock vs sales** -- 4KB Qty, Sold/Day, Needed
+- **Boxes** -- Qty/Box, Boxes, Per Shelf, Shelf Needed (Boxes ÷ Per Shelf,
+  rounded up)
+- **On shelves** -- Placed, No shelf
+- **Box size (cm)** -- L, W, H
+- **Locations** -- the shelves, and *+ Select location* while boxes are
+  still waiting; a tag instead when something stops it (no Qty/Box, no
+  L / W / H, box too big, no 4KB Qty)
+- **Remarks** -- 4KB Qty − Needed: green **+** is over quantity, red **−** is
+  insufficient; hovering says which, with both numbers.
 
 **Days of stock in 4KB** (beside **+ Add SKU**) sets Needed: *Sold per day ×
 days*. Boxes may be turned any way to fit a shelf.

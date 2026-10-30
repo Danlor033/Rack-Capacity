@@ -550,8 +550,24 @@ body.detail-open, body.cat-open { overflow: hidden; }
 /* The SKU list in the category window: fixed columns, so every heading
    sits exactly over its numbers and no row is taller than another. */
 #skuTable { table-layout: fixed; width: 100%; }
-#skuTable td { vertical-align: middle; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+#skuTable td { vertical-align: top; padding-top: 9px; padding-bottom: 9px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+#skuTable td.edit-col, #skuTable td.locs { padding-top: 5px; padding-bottom: 5px; }
 #skuTable th { white-space: normal; vertical-align: bottom; line-height: 1.25; }
+/* Group headings over the columns, and a line down the left of each group. */
+#skuTable thead tr.groups th { height: 26px; box-sizing: border-box; }
+#skuTable thead tr.groups th.g-name {
+  padding: 6px 8px 3px; border-bottom: 0; font-size: 10px; letter-spacing: .06em; text-transform: uppercase; color: var(--ink-soft);
+}
+#skuTable thead tr:not(.groups) th { top: 26px; padding-top: 3px; }
+#skuTable .g-start { border-left: 1px solid var(--line); }
+#skuTable tbody tr:nth-child(even) td { background: color-mix(in srgb, var(--ink) 3%, transparent); }
+#skuTable tbody tr:hover td { background: var(--accent-soft); }
+#skuTable td[data-w="boxes"], #skuTable td[data-w="unplaced"] { font-weight: 600; }
+/* Remarks: 4KB Qty against Needed. */
+.remark { font-weight: 700; font-variant-numeric: tabular-nums; cursor: help; }
+.remark.over { color: var(--good); }
+.remark.short { color: var(--bad); }
+.remark.even { color: var(--ink-soft); }
 /* Tier, category and SKU are shown in full, on as many lines as they need. */
 #skuTable td.wrap { white-space: normal; overflow: visible; overflow-wrap: break-word; }
 #skuTable td.sku-name { overflow-wrap: anywhere; }
