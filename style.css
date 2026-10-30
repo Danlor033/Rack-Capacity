@@ -537,9 +537,14 @@ body.detail-open, body.cat-open { overflow: hidden; }
 #skuTable th, #skuTable td, #skuTable .num, #skuTable input.cell-in { text-align: left; }
 #skuTable td.locs { white-space: normal; }
 .loc-chip {
-  display: inline-flex; align-items: center; gap: 4px; margin: 0 6px 4px 0; padding: 1px 2px 1px 7px;
+  display: inline-flex; align-items: center; gap: 6px; margin: 0 6px 4px 0; padding: 1px 2px 1px 7px;
   border: 1px solid var(--line); border-radius: 6px; background: var(--bg);
 }
+.loc-chip .copy-btn { width: 20px; height: 20px; }
+.loc-qty { font-size: 11.5px; color: var(--ink-soft); white-space: nowrap; }
+.loc-mixed { font-size: 10.5px; color: var(--accent); border: 1px solid currentColor; border-radius: 4px; padding: 0 4px; }
+.loc-total { display: block; font-size: 11.5px; font-weight: 600; margin: 0 0 4px; }
+.loc-foot { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
 .loc-free {
   border: 0; background: transparent; color: var(--ink-soft); cursor: pointer;
   font-size: 13px; line-height: 1; padding: 1px 4px; border-radius: 4px;
@@ -556,7 +561,7 @@ body.detail-open, body.cat-open { overflow: hidden; }
   background: color-mix(in srgb, var(--good, #17a673) 10%, transparent);
 }
 .cell.pick.vacant:hover { background: color-mix(in srgb, var(--good, #17a673) 28%, transparent); border-color: var(--good, #17a673); }
-.cell.pick.taken { opacity: .75; }
+.cell.pick.taken { opacity: .85; }
 .cell.pick.taken:hover { opacity: 1; border-color: var(--warn); }
 .cell.pick.mine { outline: 2px solid var(--accent); outline-offset: 1px; cursor: default; }
 

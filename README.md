@@ -66,17 +66,25 @@ the *Locations* column of the SKU list:
 
 - **+ Select location** opens the rack map for that SKU: vacant shelves
   outlined green, occupied ones in their SKU's colour, and the SKU's own
-  shelves ringed. Clicking a vacant shelf gives it to the SKU at once.
-- Picking an **occupied** shelf asks first. Confirmed, the SKU that was on
-  it is taken off and the new one goes on.
-- One SKU per shelf. A SKU can have as many shelves as it needs; its boxes
-  fill them in the order they were picked, each shelf to what it can hold.
-  Boxes left over show under *No shelf*, and the SKU is marked *needs more
-  shelves* (or *pick a location* if it has none).
-- The **×** on a location frees that shelf, after a confirmation.
+  shelves ringed. Clicking a shelf puts the SKU on it at once.
+- An **occupied** shelf is shared: the SKU goes in beside what is already
+  there, without asking. Choices are worked through in the order they were
+  made; each SKU puts as many of its boxes as fit in the room still free on
+  the shelf, in a slice front to back, full height. A shelf already full
+  takes none, and those boxes stay under *No shelf*.
+- A SKU can have as many shelves as it needs; its boxes fill them in the
+  order they were picked. Boxes left over show under *No shelf* (in red),
+  and the SKU is marked *needs more shelves* (or *pick a location*).
+- Each location shows the boxes and qty this SKU has there, *mixed* when
+  the shelf is shared, a copy button for the label, and an **×** that takes
+  this SKU off the shelf (anything else on it stays).
 
-Choices are saved for everyone, in the `rack_shelves` table: one row per
-shelf, saying which SKU is on it.
+Choices are saved for everyone, in the `rack_shelves` table: one row per SKU
+on a shelf.
+
+The list's columns, after #, Tier, Category and SKU: 4KB Qty, Sold/Day,
+Needed, Qty/Box, Boxes, Per Shelf, Shelf Needed (Boxes ÷ Per Shelf, rounded
+up), Placed, No shelf, L, W, H, Locations.
 
 **Days of stock in 4KB** (beside **+ Add SKU**) sets how many boxes each SKU
 needs: *Sold per day × days ÷ Qty per box*, rounded up. Boxes may be turned

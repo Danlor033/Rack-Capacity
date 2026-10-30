@@ -1,10 +1,12 @@
 // What sits where: every shelf a SKU has been given by hand, and how many of
 // its boxes each one holds.
 //
-// Shelves are chosen on the dashboard, one SKU per shelf. A SKU's boxes go
-// onto its shelves in the order they were given, each shelf filled to what
-// it can hold before the next; boxes left over have no shelf yet. Nothing is
-// placed automatically.
+// Shelves are chosen on the dashboard, and several SKUs may share one. The
+// choices are worked through in the order they were made: each SKU puts as
+// many of its remaining boxes on the shelf as fit in the room still free
+// there, in a slice running front to back, the full height, only as wide as
+// those boxes need. A later SKU on the same shelf gets the slice beside it.
+// Boxes left over have no shelf yet. Nothing is placed automatically.
 const Allocate = (function () {
   "use strict";
 
@@ -79,7 +81,7 @@ const Allocate = (function () {
   }
 
   // skus: the list. shelves: [{ label, sku }] -- sku being the SKU's id --
-  // in the order the shelves were given.
+  // in the order the shelves were given. One entry per SKU on a shelf.
   function place(skus, shelves, rulesIn) {
     const rules = Object.assign({}, DEFAULT_RULES, rulesIn || {});
     const shelf = Layout.SHELF;
@@ -106,41 +108,64 @@ const Allocate = (function () {
         perShelf: 0, spots: [], problem: null,
       };
     });
-    const byId = new Map(results.map((r) => [String(r.sku.id), r]));
-    const given = new Map(); // result -> its shelf labels, in order
-    for (const a of shelves) {
-      const r = byId.get(String(a.sku));
-      if (!r || !spotOf.has(a.label)) continue;
-      if (!given.has(r)) given.set(r, []);
-      given.get(r).push(a.label);
+    function extent(result) {
+      let x = 0;
+      for (const b of result.blocks) x = Math.max(x, b.x + b.nx * b.l);
+      return x;
     }
 
+    // The narrowest slice of shelf that still holds `count` boxes.
+    function slice(count, box) {
+      let lo = 1, hi = Math.ceil(shelf.l);
+      while (lo < hi) {
+        const mid = (lo + hi) >> 1;
+        if (packIn(mid, box).count >= count) hi = mid; else lo = mid + 1;
+      }
+      return { packLen: lo, len: Math.min(lo, extent(packIn(lo, box))) };
+    }
+
+    const byId = new Map(results.map((r) => [String(r.sku.id), r]));
+    const left = new Map(results.map((r) => [r, r.counted ? r.wanted : 0]));
+    for (const r of results) r.perShelf = hasSize(r.sku) ? packIn(shelf.l, boxOf(r.sku)).count : 0;
+
     const locations = new Map();
+    const seen = new Set();
+    for (const a of shelves) {
+      const r = byId.get(String(a.sku));
+      const spot = spotOf.get(a.label);
+      if (!r || !spot || seen.has(a.label + "|" + r.index)) continue;
+      seen.add(a.label + "|" + r.index);
+      let rec = locations.get(a.label);
+      if (!rec) {
+        rec = {
+          label: a.label, row: spot.row, col: spot.col, layer: spot.layer,
+          sections: [], free: shelf.l, category: text(r.sku.category).toLowerCase(),
+        };
+        locations.set(a.label, rec);
+      }
+      // As many of the SKU's remaining boxes as fit in the room still free.
+      const s = r.sku;
+      let boxes = 0, cut = { len: 0, packLen: 0 };
+      if (left.get(r) > 0 && r.perShelf && rec.free > 1) {
+        boxes = Math.min(left.get(r), packIn(Math.floor(rec.free + EPS), boxOf(s)).count);
+        if (boxes) cut = slice(boxes, boxOf(s));
+      }
+      rec.sections.push({ sku: r.index, x: shelf.l - rec.free, len: cut.len, packLen: cut.packLen, boxes: boxes });
+      rec.free -= cut.len;
+      left.set(r, left.get(r) - boxes);
+      r.spots.push({ label: a.label, boxes: boxes });
+    }
+
     for (const r of results) {
       const s = r.sku;
-      const labels = given.get(r) || [];
-      const fits = hasSize(s) ? packIn(shelf.l, boxOf(s)).count : 0;
-      r.perShelf = fits;
-      let left = r.counted ? r.wanted : 0;
-      for (const label of labels) {
-        const boxes = Math.min(left, fits);
-        left -= boxes;
-        const spot = spotOf.get(label);
-        locations.set(label, {
-          label: label, row: spot.row, col: spot.col, layer: spot.layer,
-          sections: [{ sku: r.index, x: 0, len: shelf.l, packLen: shelf.l, boxes: boxes }],
-          free: 0, category: text(s.category).toLowerCase(),
-        });
-        r.spots.push({ label: label, boxes: boxes });
-      }
-      r.placed = (r.counted ? r.wanted : 0) - left;
-      r.unplaced = left;
-
+      const remaining = left.get(r);
+      r.placed = (r.counted ? r.wanted : 0) - remaining;
+      r.unplaced = remaining;
       if (!r.counted) r.problem = "no-count";
       else if (r.wanted <= 0) r.problem = "none-needed";
       else if (!hasSize(s)) r.problem = "no-size";
-      else if (!fits) r.problem = "too-big";
-      else if (left > 0) r.problem = labels.length ? "short" : "no-location";
+      else if (!r.perShelf) r.problem = "too-big";
+      else if (remaining > 0) r.problem = r.spots.length ? "short" : "no-location";
     }
 
     // Totals.

@@ -105,9 +105,11 @@ const Dashboard = (function () {
     if (by === "sku") return '<span class="sub">Each SKU has its own colour.</span>';
     const shelves = new Map();
     for (const rec of state.alloc.locations.values()) {
-      const s = state.data.skus[rec.sections[0].sku];
-      const k = by === "tier" ? s.tier || "" : s.category || "";
-      shelves.set(k, (shelves.get(k) || 0) + 1);
+      const keys = new Set(rec.sections.map(function (sec) {
+        const s = state.data.skus[sec.sku];
+        return by === "tier" ? s.tier || "" : s.category || "";
+      }));
+      for (const k of keys) shelves.set(k, (shelves.get(k) || 0) + 1);
     }
     const keys = [...state.colors[by].keys()];
     return keys.map(function (k) {
@@ -207,7 +209,7 @@ const Dashboard = (function () {
       if (state.selected === label) cls.push("selected");
       if (state.search) cls.push(matches(rec, label) ? "hit" : "dim");
     } else {
-      cls.push("pick", !rec ? "vacant" : rec.sections[0].sku === pick ? "mine" : "taken");
+      cls.push("pick", !rec ? "vacant" : rec.sections.some((sec) => sec.sku === pick) ? "mine" : "taken");
     }
 
     let inner = "";
@@ -242,9 +244,10 @@ const Dashboard = (function () {
     const rowNames = new Map();
     const perRow = new Map();
     for (const rec of state.alloc.locations.values()) {
-      const c = catName(state.data.skus[rec.sections[0].sku].category);
       if (!perRow.has(rec.row)) perRow.set(rec.row, new Map());
-      perRow.get(rec.row).set(c, (perRow.get(rec.row).get(c) || 0) + 1);
+      for (const c of new Set(rec.sections.map((sec) => catName(state.data.skus[sec.sku].category)))) {
+        perRow.get(rec.row).set(c, (perRow.get(rec.row).get(c) || 0) + 1);
+      }
     }
     for (const [row, m] of perRow) rowNames.set(row, [...m].sort((x, y) => y[1] - x[1]).map((e) => e[0]));
     Layout.ROWS.forEach(function (cols, i) {
@@ -340,16 +343,26 @@ const Dashboard = (function () {
   };
   const ATTENTION = ["too-big", "no-size", "no-location", "short", "no-count"];
 
-  // The numbers a SKU's boxes are worked out from. Sizes and qty per box
-  // can be edited in place; sold per day and quantity are only shown.
-  const EDITABLE = [
-    { key: "soldPerDay", label: "Sold / day", fixed: true },
-    { key: "quantity", label: "Quantity", fixed: true },
-    { key: "length", label: "L" },
-    { key: "width", label: "W" },
-    { key: "height", label: "H" },
-    { key: "qtyPerBox", label: "Qty / box" },
+  // The SKU list's columns after #, Tier, Category and SKU, in order.
+  // "fixed" shows a SKU number, "edit" makes it editable in place, and the
+  // rest are worked out (see worked()). w is the width in px; Locations
+  // takes what is left.
+  const COLUMNS = [
+    { head: "4KB Qty", w: 78, fixed: "quantity" },
+    { head: "Sold/Day", w: 74, fixed: "soldPerDay" },
+    { head: "Needed", w: 76, worked: "needed", title: "Sold per day \u00d7 days of stock" },
+    { head: "Qty/Box", w: 78, edit: "qtyPerBox" },
+    { head: "Boxes", w: 60, worked: "boxes", title: "Needed \u00f7 Qty/Box, rounded up" },
+    { head: "Per Shelf", w: 72, worked: "perShelf", title: "Boxes that fit on one empty shelf" },
+    { head: "Shelf Needed", w: 96, worked: "shelvesNeeded", title: "Boxes \u00f7 Per Shelf, rounded up" },
+    { head: "Placed", w: 60, worked: "placed" },
+    { head: "No shelf", w: 66, worked: "unplaced" },
+    { head: "L", w: 60, edit: "length" },
+    { head: "W", w: 60, edit: "width" },
+    { head: "H", w: 60, edit: "height" },
+    { head: "Locations", w: 0, worked: "locations", cls: "locs" },
   ];
+  const LEAD = 4; // #, Tier, Category, SKU
 
   // A box that is empty but needed for this SKU to get a shelf.
   function wanting(r, key) {
@@ -388,41 +401,56 @@ const Dashboard = (function () {
     });
   }
 
-  // A row's cells that are worked out rather than typed: needed, boxes,
-  // placed, no shelf, per shelf, shelves taken, locations.
-  function workedOut(r) {
-    const where = r.spots.map((p) => '<span class="loc-chip"><a href="#" data-loc="' + p.label + '">' + p.label + "</a>" +
-      (p.boxes ? ' <span class="sub">\u00d7' + p.boxes + "</span>" : "") +
-      '<button type="button" class="loc-free" data-free="' + p.label + '" title="Free this shelf">\u00d7</button></span>').join("") +
-      '<button type="button" class="ghost small loc-pick" data-pick="' + r.index + '">+ Select location</button>';
+  // Each location: the shelf (opens it), boxes and qty this SKU has there,
+  // a copy button, and the x that takes the SKU off it.
+  function locationsHtml(r) {
+    const perBox = r.sku.qtyPerBox > 0 ? r.sku.qtyPerBox : 0;
+    const where = r.spots.map(function (p) {
+      const shared = (state.alloc.locations.get(p.label) || { sections: [] }).sections.length > 1;
+      return '<span class="loc-chip"><a href="#" data-loc="' + p.label + '">' + p.label + "</a>" +
+        '<span class="loc-qty">' + fmt(p.boxes) + " box" + (p.boxes === 1 ? "" : "es") +
+        (perBox ? " \u00b7 " + fmt(p.boxes * perBox) + " qty" : "") + "</span>" +
+        (shared ? '<span class="loc-mixed" title="Shared with other SKUs">mixed</span>' : "") +
+        '<button type="button" class="copy-btn" data-copy="' + p.label + '" title="Copy location" aria-label="Copy ' + p.label + '">' + COPY_ICON + "</button>" +
+        '<button type="button" class="loc-free" data-free="' + p.label + '" data-free-sku="' + r.index + '" title="Take this SKU off ' + p.label + '">\u00d7</button></span>';
+    }).join("");
+    const total = r.spots.length > 1 && perBox
+      ? '<span class="loc-total">Total ' + fmt(r.placed) + " boxes \u00b7 " + fmt(r.placed * perBox) + " qty</span>" : "";
     const note = r.problem && r.problem !== "none-needed"
-      ? ' <span class="tag' + (needsAttention(r) ? " bad" : "") + '">' + WHY[r.problem] + "</span>" : "";
-    return [
-      fmt(r.needed),
-      "<b>" + (r.problem === "no-count" ? "?" : fmt(r.wanted)) + "</b>",
-      fmt(r.placed),
-      r.unplaced ? '<span class="pending">' + fmt(r.unplaced) + "</span>" : "",
-      r.perShelf ? fmt(r.perShelf) : "",
-      r.spots.length ? fmt(r.spots.length) : "",
-      where + note,
-    ];
+      ? '<span class="tag' + (needsAttention(r) ? " bad" : "") + '">' + WHY[r.problem] + "</span>" : "";
+    return where + total + '<span class="loc-foot"><button type="button" class="ghost small loc-pick" data-pick="' + r.index +
+      '">+ Select location</button>' + note + "</span>";
+  }
+
+  // The value of one worked-out column for a SKU.
+  function worked(key, r) {
+    switch (key) {
+      case "needed": return fmt(r.needed);
+      case "boxes": return "<b>" + (r.problem === "no-count" ? "?" : fmt(r.wanted)) + "</b>";
+      case "perShelf": return r.perShelf ? fmt(r.perShelf) : "";
+      case "shelvesNeeded": return r.perShelf && r.counted && r.wanted > 0 ? fmt(Math.ceil(r.wanted / r.perShelf)) : "";
+      case "placed": return fmt(r.placed);
+      case "unplaced": return r.unplaced ? '<span class="pending">' + fmt(r.unplaced) + "</span>" : "";
+      case "locations": return locationsHtml(r);
+    }
+    return "";
   }
 
   // After an edit, the rows already on screen get their worked-out cells
   // brought up to date and nothing else is touched. Rebuilding the whole
   // list -- some 1,500 inputs -- stalled every edit and replaced the box the
   // cursor had just moved on to.
-  const WORKED_CELLS = [4, 5, 6, 7, 8, 9, 10].map((c) => c + EDITABLE.length);
+  const WORKED_CELLS = COLUMNS.map((c, i) => (c.worked ? i + LEAD : -1)).filter((i) => i >= 0);
   function updateSkus() {
     const body = el.skuTable.tBodies[0];
     if (!body) return;
     for (const tr of body.rows) {
       if (tr.dataset.sku === undefined) continue;
       const r = state.alloc.results[Number(tr.dataset.sku)];
-      const worked = workedOut(r);
-      WORKED_CELLS.forEach(function (c, i) {
+      WORKED_CELLS.forEach(function (c) {
         const td = tr.cells[c];
-        if (td && td.innerHTML !== worked[i]) td.innerHTML = worked[i];
+        const html = worked(COLUMNS[c - LEAD].worked, r);
+        if (td && td.innerHTML !== html) td.innerHTML = html;
       });
       tr.classList.toggle("short", needsAttention(r));
       for (const input of tr.querySelectorAll("input[data-field]")) {
@@ -524,25 +552,25 @@ const Dashboard = (function () {
       });
 
     const days = state.rules.days;
-    // Column widths in px, in table order; Locations takes what is left.
-    const WIDTHS = [40, 88, 100, 270, 76, 80, 62, 62, 62, 80, 92, 58, 60, 66, 70, 62, 0];
-    let html = "<colgroup>" + WIDTHS.map((w) => (w ? '<col style="width:' + w + 'px">' : "<col>")).join("") + "</colgroup>" +
+    const widths = [40, 88, 100, 270].concat(COLUMNS.map((c) => c.w));
+    let html = "<colgroup>" + widths.map((w) => (w ? '<col style="width:' + w + 'px">' : "<col>")).join("") + "</colgroup>" +
       "<thead><tr><th>#</th><th>Tier</th><th>Category</th><th>SKU</th>" +
-      EDITABLE.map((f) => '<th class="num">' + f.label + "</th>").join("") +
-      '<th class="num" title="Sold per day \u00d7 ' + days + '">Needed (' + days + " d)</th>" +
-      '<th class="num" title="Needed \u00f7 Qty per box, rounded up">Boxes</th><th class="num">Placed</th>' +
-      '<th class="num">No shelf</th><th class="num">Per shelf</th>' +
-      '<th class="num" title="How many shelves this SKU takes">Shelves</th><th>Locations</th></tr></thead><tbody>';
+      COLUMNS.map(function (c) {
+        const title = c.worked === "needed" ? "Sold per day \u00d7 " + days + " days" : c.title;
+        return "<th" + (title ? ' title="' + title + '"' : "") + ">" + c.head + "</th>";
+      }).join("") + "</tr></thead><tbody>";
     // # counts down this list from 1, whatever is open.
     rows.forEach(function (r, i) {
       const s = r.sku;
-      const worked = workedOut(r);
-      const inputs = EDITABLE.map(function (f) {
-        const v = s[f.key];
-        if (f.fixed) return '<td class="num">' + fmt(v) + "</td>";
-        return '<td class="num edit-col"><input class="cell-in' + (wanting(r, f.key) ? " want" : "") +
-          '" type="number" min="0" step="any" inputmode="decimal" data-sku="' + r.index +
-          '" data-field="' + f.key + '" value="' + (v === null || v === undefined ? "" : v) + '"></td>';
+      const cells = COLUMNS.map(function (c) {
+        if (c.fixed) return '<td class="num">' + fmt(s[c.fixed]) + "</td>";
+        if (c.edit) {
+          const v = s[c.edit];
+          return '<td class="num edit-col"><input class="cell-in' + (wanting(r, c.edit) ? " want" : "") +
+            '" type="number" min="0" step="any" inputmode="decimal" data-sku="' + r.index +
+            '" data-field="' + c.edit + '" value="' + (v === null || v === undefined ? "" : v) + '"></td>';
+        }
+        return '<td class="' + (c.cls || "num") + '">' + worked(c.worked, r) + "</td>";
       }).join("");
       html += '<tr data-sku="' + r.index + '"' + (needsAttention(r) ? ' class="short"' : "") + ">" +
         '<td class="sub">' + (i + 1) + "</td>" +
@@ -550,11 +578,7 @@ const Dashboard = (function () {
         '</td><td class="sku-name" title="' + esc(s.sku) + '"><span class="sku-wrap"><b>' + esc(s.sku) + "</b>" +
         '<button type="button" class="copy-btn" data-copy="' + esc(s.sku) + '" title="Copy SKU" aria-label="Copy ' + esc(s.sku) + '">' +
         COPY_ICON + "</button></span></td>" +
-        inputs +
-        '<td class="num">' + worked[0] + '</td><td class="num">' + worked[1] + "</td>" +
-        '<td class="num">' + worked[2] + '</td><td class="num">' + worked[3] + "</td>" +
-        '<td class="num">' + worked[4] + '</td><td class="num">' + worked[5] + "</td>" +
-        '<td class="locs">' + worked[6] + "</td></tr>";
+        cells + "</tr>";
     });
     if (!rows.length) html += '<tr><td colspan="17" class="sub">Nothing to show.</td></tr>';
     el.skuTable.innerHTML = html + "</tbody>";
@@ -606,6 +630,7 @@ const Dashboard = (function () {
     }
     const copy = e.target.closest("button[data-copy]");
     if (copy) {
+      const was = copy.title;
       copyText(copy.dataset.copy).then(function () {
         copy.innerHTML = DONE_ICON;
         copy.classList.add("done");
@@ -613,13 +638,13 @@ const Dashboard = (function () {
         setTimeout(function () {
           copy.innerHTML = COPY_ICON;
           copy.classList.remove("done");
-          copy.title = "Copy SKU";
+          copy.title = was;
         }, 1200);
       }).catch(function () { copy.title = "Could not copy"; });
       return;
     }
     const free = e.target.closest("button[data-free]");
-    if (free) { freeShelf(free.dataset.free); return; }
+    if (free) { freeShelf(free.dataset.free, Number(free.dataset.freeSku)); return; }
     const pick = e.target.closest("button[data-pick]");
     if (pick) { openPicker(Number(pick.dataset.pick)); return; }
     if (e.target.closest("input, select, button")) return;
@@ -675,13 +700,6 @@ const Dashboard = (function () {
 
   async function giveShelf(index, label) {
     const r = state.alloc.results[index];
-    const rec = state.alloc.locations.get(label);
-    if (rec) {
-      const old = state.data.skus[rec.sections[0].sku];
-      const ok = confirm(label + " already holds " + old.sku + ".\n\nPut " + r.sku.sku + " there instead? " +
-        old.sku + " will be removed from " + label + ".");
-      if (!ok) return;
-    }
     if (!r.sku.id) {
       failed = "This SKU was loaded before shelves could be chosen \u2014 reload the page, then try again.";
       status();
@@ -693,7 +711,7 @@ const Dashboard = (function () {
     try {
       const head = await ensureImport();
       const given = await DB.shelves.assign(head.id, label, r.sku.id);
-      state.data.shelves = state.data.shelves.filter((a) => a.label !== label).concat([given]);
+      state.data.shelves = state.data.shelves.concat([given]);
       closePicker();
       refresh();
     } catch (err) {
@@ -705,21 +723,20 @@ const Dashboard = (function () {
     }
   }
 
-  async function freeShelf(label) {
-    const rec = state.alloc.locations.get(label);
-    const name = rec ? state.data.skus[rec.sections[0].sku].sku : "";
-    if (!confirm("Free " + label + "? " + name + " will be taken off it.")) return;
+  async function freeShelf(label, index) {
+    const r = state.alloc.results[index];
+    if (!r || !confirm("Take " + r.sku.sku + " off " + label + "?")) return;
     failed = null;
     saving++;
     status();
     try {
-      await DB.shelves.free(state.data.import.id, label);
-      state.data.shelves = state.data.shelves.filter((a) => a.label !== label);
-      if (state.selected === label) closeDetail();
+      await DB.shelves.free(state.data.import.id, label, r.sku.id);
+      state.data.shelves = state.data.shelves.filter((a) => !(a.label === label && String(a.sku) === String(r.sku.id)));
+      if (state.selected === label && !state.data.shelves.some((a) => a.label === label)) closeDetail();
       refresh();
     } catch (err) {
       console.error(err);
-      failed = "Could not free " + label + ": " + err.message;
+      failed = "Could not take " + r.sku.sku + " off " + label + ": " + err.message;
     } finally {
       saving--;
       status();

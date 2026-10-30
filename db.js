@@ -270,32 +270,33 @@ const DB = (function () {
       return rows.map((r) => ({ label: r.label, sku: r.sku_id, at: r.assigned_at }));
     },
 
-    // Give a shelf to a SKU. Whatever was on it before is replaced.
+    // Put a SKU on a shelf, beside whatever is already there.
     async assign(importId, label, skuId) {
       const at = new Date().toISOString();
       if (!configured()) {
-        const all = localShelves().filter((a) => !(a.importId === importId && a.label === label));
+        const all = localShelves().filter((a) => !(a.importId === importId && a.label === label && a.sku === skuId));
         all.push({ importId: importId, label: label, sku: skuId, at: at });
         localStorage.setItem(LOCAL_SHELVES, JSON.stringify(all));
         return { label: label, sku: skuId, at: at };
       }
       await rest(SHELF_TABLE, {
-        method: "POST", query: "?on_conflict=import_id,label",
+        method: "POST", query: "?on_conflict=import_id,label,sku_id",
         body: [{ import_id: importId, label: label, sku_id: skuId, assigned_at: at }],
-        prefer: "resolution=merge-duplicates,return=minimal",
+        prefer: "resolution=ignore-duplicates,return=minimal",
       });
       return { label: label, sku: skuId, at: at };
     },
 
-    async free(importId, label) {
+    // Take one SKU off a shelf; anything else on it stays.
+    async free(importId, label, skuId) {
       if (!configured()) {
-        const all = localShelves().filter((a) => !(a.importId === importId && a.label === label));
+        const all = localShelves().filter((a) => !(a.importId === importId && a.label === label && a.sku === skuId));
         localStorage.setItem(LOCAL_SHELVES, JSON.stringify(all));
         return;
       }
       await rest(SHELF_TABLE, {
         method: "DELETE",
-        query: "?import_id=eq." + importId + "&label=eq." + encodeURIComponent(label),
+        query: "?import_id=eq." + importId + "&label=eq." + encodeURIComponent(label) + "&sku_id=eq." + encodeURIComponent(skuId),
         prefer: "return=minimal",
       });
     },

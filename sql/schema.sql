@@ -94,14 +94,14 @@ drop policy if exists rack_skus_all on rack_skus;
 create policy rack_skus_all on rack_skus
   for all to anon, authenticated using (true) with check (true);
 
--- Which SKU sits on which 4KB shelf, chosen by hand. One SKU per shelf:
--- giving a shelf to another SKU replaces the row.
+-- Which SKUs sit on which 4KB shelf, chosen by hand. One row per SKU on a
+-- shelf; several SKUs may share one.
 create table if not exists rack_shelves (
   import_id    uuid not null references rack_imports(id) on delete cascade,
   label        text not null,
   sku_id       bigint not null references rack_skus(id) on delete cascade,
   assigned_at  timestamptz not null default now(),
-  primary key (import_id, label)
+  primary key (import_id, label, sku_id)
 );
 
 create index if not exists rack_shelves_sku on rack_shelves (sku_id);

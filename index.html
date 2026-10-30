@@ -4,7 +4,7 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>Rack Planner</title>
-<link rel="stylesheet" href="style.css?v=2026-10-30a" />
+<link rel="stylesheet" href="style.css?v=2026-10-30b" />
 </head>
 <body>
 
@@ -101,11 +101,11 @@
             <p class="sub" id="pickSub">&nbsp;</p>
           </div>
           <div class="sku-tools">
-            <span class="pick-legend"><i class="vacant"></i>Vacant <i class="taken"></i>Occupied <i class="mine"></i>This SKU</span>
+            <span class="pick-legend"><i class="vacant"></i>Vacant <i class="taken"></i>Occupied (mixes in) <i class="mine"></i>This SKU</span>
             <button class="ghost small detail-close" id="pickClose" type="button" title="Close (Esc)" aria-label="Close">&times;</button>
           </div>
         </div>
-        <p class="sub pick-hint">Click a vacant shelf to give it to this SKU. An occupied shelf asks first.</p>
+        <p class="sub pick-hint">Click a shelf to put this SKU on it. On an occupied shelf it goes in beside the SKUs already there.</p>
         <div class="map-legend pick-legend-cats" id="pickLegend"></div>
         <div class="pick-body"><div class="map-rows" id="pickMap"></div></div>
       </div>
@@ -288,16 +288,16 @@
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-<script src="config.js?v=2026-10-30a"></script>
-<script src="packer.js?v=2026-10-30a"></script>
-<script src="layout.js?v=2026-10-30a"></script>
-<script src="allocate.js?v=2026-10-30a"></script>
-<script src="db.js?v=2026-10-30a"></script>
-<script src="excel.js?v=2026-10-30a"></script>
-<script src="view3d.js?v=2026-10-30a"></script>
-<script src="view2d.js?v=2026-10-30a"></script>
-<script src="app.js?v=2026-10-30a"></script>
-<script src="dashboard.js?v=2026-10-30a"></script>
-<script src="pages.js?v=2026-10-30a"></script>
+<script src="config.js?v=2026-10-30b"></script>
+<script src="packer.js?v=2026-10-30b"></script>
+<script src="layout.js?v=2026-10-30b"></script>
+<script src="allocate.js?v=2026-10-30b"></script>
+<script src="db.js?v=2026-10-30b"></script>
+<script src="excel.js?v=2026-10-30b"></script>
+<script src="view3d.js?v=2026-10-30b"></script>
+<script src="view2d.js?v=2026-10-30b"></script>
+<script src="app.js?v=2026-10-30b"></script>
+<script src="dashboard.js?v=2026-10-30b"></script>
+<script src="pages.js?v=2026-10-30b"></script>
 </body>
 </html>
