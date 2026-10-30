@@ -47,6 +47,20 @@ a Tier, Category, SKU code, Sold per day, Quantity, Length, Width, Height
   outlined. Tier, category and SKU code cannot be edited; remove the SKU and
   add it again.
 
+**Sold per day comes from a Google Sheet**, *Shigetsu sold per day*
+(SKU in column A, sold per day in column D). The page reads it when it
+opens, then every minute while it is in view and whenever it comes back
+into view. A number that changed is used at once and saved to the SKU, so
+the last one is kept if the sheet cannot be reached. The line under the
+page title links the sheet and says when it was last checked.
+
+- The sheet must stay shared as *anyone with the link can view*; that is
+  what lets a browser read it without a Google sign-in. If it is made
+  private, the page says it cannot read it and keeps the saved numbers.
+- SKUs are matched by code, ignoring case. A SKU that is not in the sheet
+  keeps its saved number.
+- Which sheet and columns: `soldsheet.js`.
+
 Two numbers are worked out, not typed:
 
 - **Needed qty** = *Sold per day × days*, where days is a setting on the
@@ -225,6 +239,7 @@ change if the app ever gains a login.
 | `layout.js` | The 4KB rows, columns, layers and labels, and the fill orders. |
 | `allocate.js` | How many of a SKU's boxes go on each shelf it was given. No DOM -- testable on its own. |
 | `excel.js` | The put-away export (SheetJS). Also an unused sheet reader, from when there was an Import page. |
+| `soldsheet.js` | Reads sold per day from the Google Sheet (column D, by the SKU in column A). |
 | `dashboard.js` | The racks page: map, shelf detail, SKU list by category, adding and removing SKUs, rules. |
 | `pages.js` | Switching between Racks and Calculator. |
 | `view3d.js` | The 3D rack, on three.js. One instanced cube per box. |

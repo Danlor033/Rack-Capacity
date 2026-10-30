@@ -525,6 +525,10 @@ body.detail-open, body.cat-open { overflow: hidden; }
 .sku-head h3 { margin: 0; font-size: 18px; }
 .sku-tools { display: flex; gap: 8px; align-items: center; }
 .sku-tools select { width: auto; }
+.sold-sync { margin: 2px 0 0; font-size: 12px; }
+.sold-sync a { color: var(--accent); text-decoration: none; }
+.sold-sync a:hover { text-decoration: underline; }
+.sold-sync.bad-text a { color: inherit; text-decoration: underline; }
 .days-field { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--ink-soft); white-space: nowrap; }
 .days-field input { width: 72px; }
 

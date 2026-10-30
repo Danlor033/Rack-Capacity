@@ -25,7 +25,7 @@ const Dashboard = (function () {
     catList: $("catList"), catHint: $("catHint"), skuAdd: $("skuAdd"),
     pickModal: $("pickModal"), pickTitle: $("pickTitle"), pickSub: $("pickSub"),
     pickMap: $("pickMap"), pickClose: $("pickClose"), pickLegend: $("pickLegend"), pickHint: $("pickHint"),
-    mapLegend: $("mapLegend"),
+    mapLegend: $("mapLegend"), soldSync: $("soldSync"),
     catStats: $("catStats"), catModal: $("catModal"), catTitle: $("catTitle"), catClose: $("catClose"), catAdd: $("catAdd"), catBody: $("catBody"),
     skuDialog: $("skuDialog"), skuForm: $("skuForm"), skuFormError: $("skuFormError"),
     skuCancel: $("skuCancel"),
@@ -361,7 +361,7 @@ const Dashboard = (function () {
   // takes what is left.
   const COLUMNS = [
     { head: "4KB Qty", w: 72, fixed: "quantity" },
-    { head: "Sold/Day", w: 70, fixed: "soldPerDay" },
+    { head: "Sold/Day", w: 70, worked: "sold", title: "Live from the Google Sheet, column D" },
     { head: "Needed", w: 68, worked: "needed", title: "Sold per day \u00d7 days of stock" },
     { head: "Qty/Box", w: 72, edit: "qtyPerBox" },
     { head: "Boxes", w: 56, worked: "boxes", title: "Needed \u00f7 Qty/Box, rounded up" },
@@ -454,6 +454,7 @@ const Dashboard = (function () {
   // The value of one worked-out column for a SKU.
   function worked(key, r) {
     switch (key) {
+      case "sold": return fmt(r.sku.soldPerDay);
       case "needed": return fmt(r.needed);
       case "boxes": return "<b>" + (r.problem === "no-count" ? "?" : fmt(r.wanted)) + "</b>";
       case "perShelf": return r.perShelf ? fmt(r.perShelf) : "";
@@ -1079,6 +1080,64 @@ const Dashboard = (function () {
 
   document.addEventListener("themechange", function () { if (state.data) renderDetail(); });
 
+  // --- sold per day, live from the Google Sheet --------------------------------
+
+  // Read every minute while the page is in view, and at once when it comes
+  // back into view. A number that changed is used straight away and saved,
+  // so the list still has it if the sheet cannot be reached later.
+  const SOLD_EVERY = 60 * 1000;
+  let soldTimer = null;
+  let soldBusy = false;
+
+  function soldStatus(text, bad) {
+    el.soldSync.innerHTML = text;
+    el.soldSync.classList.toggle("bad-text", !!bad);
+  }
+
+  async function syncSold() {
+    if (soldBusy || !state.data || document.hidden) return;
+    soldBusy = true;
+    try {
+      const sold = await SoldSheet.read();
+      const changed = [];
+      let matched = 0;
+      for (const s of state.data.skus) {
+        const v = sold.get(String(s.sku).trim().toLowerCase());
+        if (v === undefined) continue;
+        matched++;
+        if (v !== s.soldPerDay) {
+          s.soldPerDay = v;
+          changed.push(s);
+        }
+      }
+      if (changed.length) {
+        refresh();
+        for (const s of changed) {
+          if (s.id) DB.imports.updateSku(s.id, { soldPerDay: s.soldPerDay }).catch((e) => console.error(e));
+        }
+      }
+      const when = new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+      const missing = state.data.skus.length - matched;
+      soldStatus('Sold/Day live from <a href="' + SoldSheet.url + '" target="_blank" rel="noopener">Google Sheet</a>' +
+        " \u00b7 checked " + when +
+        (changed.length ? " \u00b7 " + changed.length + " updated" : "") +
+        (missing ? " \u00b7 " + missing + " SKU" + (missing === 1 ? "" : "s") + " not in the sheet" : ""));
+    } catch (e) {
+      console.error(e);
+      soldStatus('Could not read the <a href="' + SoldSheet.url + '" target="_blank" rel="noopener">Google Sheet</a> (' +
+        esc(e.message) + ") \u2014 showing the last saved Sold/Day.", true);
+    } finally {
+      soldBusy = false;
+    }
+  }
+
+  function startSoldSync() {
+    syncSold();
+    clearInterval(soldTimer);
+    soldTimer = setInterval(syncSold, SOLD_EVERY);
+    document.addEventListener("visibilitychange", function () { if (!document.hidden) syncSold(); });
+  }
+
   // --- start -----------------------------------------------------------------
 
   async function start() {
@@ -1086,6 +1145,7 @@ const Dashboard = (function () {
       const data = await DB.imports.latest();
       if (data && data.import) data.shelves = await DB.shelves.list(data.import.id);
       load(data);
+      startSoldSync();
     } catch (e) {
       console.error(e);
       el.empty.hidden = false;
