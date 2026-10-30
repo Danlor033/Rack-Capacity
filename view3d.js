@@ -176,11 +176,56 @@ const View3D = (function () {
       });
     }
 
+    // The colours of the box's own sides, the same as their tags (style.css).
+    const SIDE_COLORS = { L: 0xd6453d, W: 0x1f8f4e, H: 0x2f6fed, "?": 0x8a93a5 };
+    const UP = new THREE.Vector3(0, 1, 0);
+
+    // The marks are drawn over everything, never hidden behind a box: the
+    // dark rim first, then the colour on top of it.
+    function overlay(color, order) {
+      return [new THREE.MeshBasicMaterial({ color: color, depthTest: false, depthWrite: false }), order];
+    }
+
+    // A round bar from a to b, with a dark rim so it stands out against a
+    // box of much the same colour.
+    function rod(group, a, b, r, color) {
+      const len = a.distanceTo(b);
+      if (len < 1e-6) return;
+      const dir = new THREE.Vector3().subVectors(b, a).normalize();
+      const turn = new THREE.Quaternion().setFromUnitVectors(UP, dir);
+      const mid = new THREE.Vector3().addVectors(a, b).multiplyScalar(0.5);
+      [[r * 1.7].concat(overlay(0x111827, 10)), [r].concat(overlay(color, 11))].forEach(function (part) {
+        const bar = new THREE.Mesh(new THREE.CylinderGeometry(part[0], part[0], len + part[0], 12), part[1]);
+        bar.position.copy(mid);
+        bar.quaternion.copy(turn);
+        bar.renderOrder = part[2];
+        group.add(bar);
+      });
+    }
+
+    function dot(group, at, r, color) {
+      [[r * 1.4].concat(overlay(0x111827, 12)), [r].concat(overlay(color, 13))].forEach(function (part) {
+        const ball = new THREE.Mesh(new THREE.SphereGeometry(part[0], 16, 12), part[1]);
+        ball.position.copy(at);
+        ball.renderOrder = part[2];
+        group.add(ball);
+      });
+    }
+
     // The rack's own size along its three edges, and on one box of each
     // kind (each way it is turned, per SKU) which side is L, W and H: the
-    // box nearest the starting view, outlined.
+    // box nearest the starting view, outlined, its three edges at one corner
+    // drawn in their side's colour, the corner marked, and a line from each
+    // edge out to its tag.
     function label(rack, placements, opts) {
-      if (marks) { scene.remove(marks); marks.traverse((o) => { if (o.geometry) o.geometry.dispose(); }); marks = null; }
+      if (marks) {
+        scene.remove(marks);
+        marks.traverse(function (o) {
+          if (o.geometry) o.geometry.dispose();
+          if (o.material) o.material.dispose();
+        });
+        marks = null;
+      }
       if (!opts) { setTags([]); return; }
       const fmt = opts.fmt || ((cm) => Math.round(cm * 10) / 10 + " cm");
       const what = opts.what || "Rack";
@@ -190,7 +235,7 @@ const View3D = (function () {
       // upright at the left, so they stay clear of the boxes and each other.
       const list = [
         { at: at(rack.l / 2, rack.w + out, -out), text: what + " length " + fmt(rack.l), cls: "v3d-rack" },
-        { at: at(rack.l + out, rack.w / 2, -out), text: what + " width " + fmt(rack.w), cls: "v3d-rack" },
+        { at: at(rack.l + out, rack.w * 0.3, -out), text: what + " width " + fmt(rack.w), cls: "v3d-rack" },
         { at: at(-out, rack.w, rack.h / 2), text: what + " height " + fmt(rack.h), cls: "v3d-rack" },
       ];
 
@@ -216,6 +261,7 @@ const View3D = (function () {
         }
         marks = new THREE.Group();
         const lineMat = new THREE.LineBasicMaterial({ color: opts.dark ? 0xffffff : 0x111827 });
+        const big = Math.max(rack.l, rack.w, rack.h);
         [...pick.values()].forEach(function (b) {
           const p = b.p;
           const own = opts.dims(p);
@@ -226,22 +272,30 @@ const View3D = (function () {
           geo.dispose();
           edges.position.copy(at(p.x + p.l / 2, p.y + p.w / 2, p.z + p.h / 2));
           marks.add(edges);
-          // The three edges that meet at the box's corner on its side, each
-          // tag pushed a little off its edge, away from the box, so the
-          // three do not sit on top of each other.
-          const d = Math.min(p.l, p.w, p.h) * 0.35;
-          const cx = b.c[0] ? p.x + p.l + d : p.x - d;
-          const cy = b.c[1] ? p.y + p.w + d : p.y - d;
-          const z1 = p.z + p.h;
+          // The corner on its side where the three labelled edges meet; each
+          // tag sits out from the middle of its edge, away from the box, with
+          // a line back to it.
+          const r = Math.max(0.3, Math.min(big * 0.0065, Math.min(p.l, p.w, p.h) * 0.08));
+          const d = Math.max(Math.min(p.l, p.w, p.h) * 0.6, big * 0.04);
+          const ex = b.c[0] ? p.x + p.l : p.x, ey = b.c[1] ? p.y + p.w : p.y, z1 = p.z + p.h;
+          const sx = b.c[0] ? 1 : -1, sy = b.c[1] ? 1 : -1;
           const edge = [
-            [at(p.x + p.l / 2, cy, z1 + d), sides[0], p.l, "along the " + what.toLowerCase() + "'s length"],
-            [at(cx, p.y + p.w / 2, z1 + d), sides[1], p.w, "across the " + what.toLowerCase() + "'s width"],
-            [at(cx, cy, p.z + p.h / 2), sides[2], p.h, "upright"],
+            // [edge from, edge to, tag at, side, size, how it runs]
+            [at(p.x, ey, z1), at(p.x + p.l, ey, z1), at(p.x + p.l / 2, ey + sy * d, z1 + d),
+              sides[0], p.l, "along the " + what.toLowerCase() + "'s length"],
+            [at(ex, p.y, z1), at(ex, p.y + p.w, z1), at(ex + sx * d, p.y + p.w / 2, z1 + d),
+              sides[1], p.w, "across the " + what.toLowerCase() + "'s width"],
+            [at(ex, ey, p.z), at(ex, ey, z1), at(ex + sx * d, ey + sy * d, p.z + p.h / 2),
+              sides[2], p.h, "upright"],
           ];
           for (const e of edge) {
-            list.push({ at: e[0], text: e[1] + " " + fmt(e[2]), cls: "v3d-side v3d-" + e[1],
-              title: "The box's " + ({ L: "length", W: "width", H: "height" }[e[1]] || "side") + " runs " + e[3] });
+            const color = SIDE_COLORS[e[3]] || SIDE_COLORS["?"];
+            rod(marks, e[0], e[1], r, color);
+            rod(marks, new THREE.Vector3().addVectors(e[0], e[1]).multiplyScalar(0.5), e[2], r * 0.55, color);
+            list.push({ at: e[2], text: e[3] + " " + fmt(e[4]), cls: "v3d-side v3d-" + e[3],
+              title: "The box's " + ({ L: "length", W: "width", H: "height" }[e[3]] || "side") + " runs " + e[5] });
           }
+          dot(marks, at(ex, ey, z1), r * 2.2, 0xffffff);
         });
         scene.add(marks);
       }
