@@ -14,7 +14,7 @@ const Allocate = (function () {
 
   const DEFAULT_RULES = {
     turn: "any",     // "any" | "upright"
-    days: 15,        // days of sales 4KB holds stock for
+    days: 15,        // no longer used: boxes come from the 4KB Qty
   };
 
   function text(v) {
@@ -57,16 +57,17 @@ const Allocate = (function () {
     return known.concat(rest);
   }
 
-  // What 4KB has to hold for a SKU: enough to sell from for `days` days.
-  function neededQty(s, days) {
-    return num(s.soldPerDay) * days;
+  // What 4KB has to hold for a SKU: its 4KB Qty. Sold per day is shown but
+  // does not change the count.
+  function neededQty(s) {
+    return num(s.quantity);
   }
 
   // How many boxes that comes to, or null when it cannot be known because
   // nobody has said how many units a box holds. Rounded up: a part-full
   // carton still takes a whole carton's room on the shelf.
-  function boxesWanted(s, days) {
-    const needed = neededQty(s, days);
+  function boxesWanted(s) {
+    const needed = neededQty(s);
     const perBox = num(s.qtyPerBox);
     if (perBox <= 0) return needed > 0 ? null : 0;
     return Math.max(0, Math.ceil(needed / perBox - EPS));
@@ -85,8 +86,6 @@ const Allocate = (function () {
   function place(skus, shelves, rulesIn) {
     const rules = Object.assign({}, DEFAULT_RULES, rulesIn || {});
     const shelf = Layout.SHELF;
-    const days = num(rules.days) > 0 ? rules.days : DEFAULT_RULES.days;
-    rules.days = days;
 
     const cache = new Map();
     function packIn(length, box) {
@@ -101,9 +100,9 @@ const Allocate = (function () {
 
     const spotOf = new Map(Layout.all().map((s) => [s.label, s]));
     const results = skus.map(function (s, i) {
-      const wanted = boxesWanted(s, days);
+      const wanted = boxesWanted(s);
       return {
-        index: i, order: i, sku: s, needed: neededQty(s, days),
+        index: i, order: i, sku: s, needed: neededQty(s),
         wanted: wanted === null ? 0 : wanted, counted: wanted !== null, placed: 0, unplaced: 0,
         perShelf: 0, spots: [], problem: null,
       };

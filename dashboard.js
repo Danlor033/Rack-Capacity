@@ -21,7 +21,7 @@ const Dashboard = (function () {
     dLabel: $("dLabel"), dWhere: $("dWhere"), dCanvas: $("dCanvas"), dTable: $("dTable"),
     skuFilter: $("skuFilter"), skuTable: $("skuTable"),
     gap: $("dataGap"), gapText: $("dataGapText"), gapShow: $("dataGapShow"),
-    ruleDays: $("ruleDays"), skuStatus: $("skuStatus"),
+    skuStatus: $("skuStatus"),
     catList: $("catList"), catHint: $("catHint"), skuAdd: $("skuAdd"),
     pickModal: $("pickModal"), pickTitle: $("pickTitle"), pickSub: $("pickSub"),
     pickMap: $("pickMap"), pickClose: $("pickClose"), pickLegend: $("pickLegend"), pickHint: $("pickHint"),
@@ -133,7 +133,6 @@ const Dashboard = (function () {
     el.empty.hidden = true;
     el.dash.hidden = false;
     state.rules = Object.assign({}, Allocate.DEFAULT_RULES, (state.data.import && state.data.import.rules) || {});
-    el.ruleDays.value = state.rules.days;
 
     buildColors();
     recompute();
@@ -171,14 +170,14 @@ const Dashboard = (function () {
     el.kSkus.textContent = s.skusPlaced + " / " + s.skusNeeding;
     el.kFill.textContent = pct(s.fill);
 
-    // SKUs the sheet asks stock for but gives no box count: the racks cannot
+    // SKUs with a 4KB Qty but no box count: the racks cannot
     // hold what nobody has said the size of. Easy to miss in a table, so it
     // is said up front.
     if (s.skusNoCount) {
       const units = state.alloc.results.filter((r) => r.problem === "no-count")
         .reduce((n, r) => n + r.needed, 0);
-      el.gapText.innerHTML = "<b>" + s.skusNoCount + " SKUs</b> sell (" + units.toLocaleString() +
-        " units over " + state.rules.days + " days) but have no <em>Qty per box</em>, so their boxes " +
+      el.gapText.innerHTML = "<b>" + s.skusNoCount + " SKUs</b> have a 4KB Qty (" + units.toLocaleString() +
+        " units) but no <em>Qty per box</em>, so their boxes " +
         "cannot be counted and the racks have no room set aside for them. Click <em>Show them</em> to fill it in.";
       el.gap.hidden = false;
     } else {
@@ -362,7 +361,7 @@ const Dashboard = (function () {
   const COLUMNS = [
     { head: "4KB Qty", w: 72, fixed: "quantity" },
     { head: "Sold/Day", w: 70, worked: "sold", title: "Live from the Google Sheet, column D" },
-    { head: "Needed", w: 68, worked: "needed", title: "Sold per day \u00d7 days of stock" },
+    { head: "Needed", w: 68, worked: "needed", title: "The 4KB Qty" },
     { head: "Qty/Box", w: 72, edit: "qtyPerBox" },
     { head: "Boxes", w: 56, worked: "boxes", title: "Needed \u00f7 Qty/Box, rounded up" },
     { head: "Per Shelf", w: 68, worked: "perShelf", title: "Boxes that fit on one empty shelf" },
@@ -380,7 +379,7 @@ const Dashboard = (function () {
   function wanting(r, key) {
     const s = r.sku;
     if (key === "qtyPerBox") return r.problem === "no-count";
-    if (key === "length" || key === "width" || key === "height") return r.problem === "no-size" || !(s[key] > 0) && s.soldPerDay > 0;
+    if (key === "length" || key === "width" || key === "height") return r.problem === "no-size" || !(s[key] > 0) && r.needed > 0;
     return false;
   }
 
@@ -581,12 +580,11 @@ const Dashboard = (function () {
         return true;
       });
 
-    const days = state.rules.days;
     const widths = [40, 80, 100, 240].concat(COLUMNS.map((c) => c.w));
     let html = "<colgroup>" + widths.map((w) => (w ? '<col style="width:' + w + 'px">' : "<col>")).join("") + "</colgroup>" +
       "<thead><tr><th>#</th><th>Tier</th><th>Category</th><th>SKU</th>" +
       COLUMNS.map(function (c) {
-        const title = c.worked === "needed" ? "Sold per day \u00d7 " + days + " days" : c.title;
+        const title = c.title;
         return "<th" + (title ? ' title="' + title + '"' : "") + ">" + c.head + "</th>";
       }).join("") + "</tr></thead><tbody>";
     // # counts down this list from 1, whatever is open.
@@ -955,27 +953,6 @@ const Dashboard = (function () {
   });
   el.skuFilter.addEventListener("change", renderSkus);
 
-  // The days of stock re-lay the racks at once and are saved for everyone.
-  // The other rules are no longer on the page; the ones saved with the
-  // list still apply.
-  let saveTimer = null;
-  function ruleChanged() {
-    const days = Math.round(Number(el.ruleDays.value));
-    state.rules = Object.assign({}, state.rules, {
-      days: days >= 1 && days <= 365 ? days : state.rules.days,
-    });
-    el.ruleDays.value = state.rules.days;
-    recompute();
-    clearTimeout(saveTimer);
-    saveTimer = setTimeout(function () {
-      ensureImport()
-        .then((head) => DB.imports.setRules(head.id, state.rules))
-        .then(function () { state.data.import.rules = state.rules; })
-        .catch(function (e) { console.error(e); alert("The new rules could not be saved: " + e.message); });
-    }, 400);
-  }
-  el.ruleDays.addEventListener("change", ruleChanged);
-
   function openCategory(key, filter) {
     state.category = key;
     el.skuFilter.value = filter || "all";
@@ -1143,8 +1120,8 @@ const Dashboard = (function () {
 
   // --- changes made by others, as they happen ----------------------------------
 
-  // Every open page hears about a change to a SKU, a shelf choice or the days
-  // of stock the moment it is saved, by anybody, and redraws with it. Changes
+  // Every open page hears about a change to a SKU or a shelf choice the
+  // moment it is saved, by anybody, and redraws with it. Changes
   // arriving together are taken in one go. What is being typed in a box is
   // never overwritten. If the live connection drops, the page checks every
   // 20 seconds instead until it is back.
@@ -1227,14 +1204,7 @@ const Dashboard = (function () {
           state.picking = state.data.skus.indexOf(picking);
           if (state.picking < 0) closePicker();
         }
-        // The days of stock, set by somebody else.
         state.data.import.rules = data.import.rules || {};
-        const days = Object.assign({}, Allocate.DEFAULT_RULES, state.data.import.rules).days;
-        if (days !== state.rules.days) {
-          state.rules = Object.assign({}, state.rules, { days: days });
-          if (document.activeElement !== el.ruleDays) el.ruleDays.value = days;
-          redraw = true;
-        }
       }
       if (want.has("shelves")) state.data.shelves = await DB.shelves.list(state.data.import.id);
       if (redraw) {

@@ -64,8 +64,9 @@ page title links the sheet and says when it was last checked.
 
 Two numbers are worked out, not typed:
 
-- **Needed qty** = *Sold per day × days*, where days is a setting on the
-  Racks page (15 to start with).
+- **Needed qty** = the SKU's **4KB Qty** (10,000 for every SKU since
+  2026-10-30; a new SKU starts at 10,000). Sold per day is shown but does
+  not change the count.
 - **Boxes** = *Needed qty ÷ Qty per box*, **rounded up** -- a part-full
   carton still takes a whole carton's room on the shelf.
 
@@ -108,9 +109,9 @@ The list's columns, after #, Tier, Category and SKU: 4KB Qty, Sold/Day,
 Needed, Qty/Box, Boxes, Per Shelf, Shelf Needed (Boxes ÷ Per Shelf, rounded
 up), Placed, No shelf, L, W, H, Locations.
 
-**Days of stock in 4KB** (beside **+ Add SKU**) sets how many boxes each SKU
-needs: *Sold per day × days ÷ Qty per box*, rounded up. Boxes may be turned
-any way to fit a shelf.
+Each SKU needs *4KB Qty ÷ Qty per box* boxes, rounded up. Boxes may be
+turned any way to fit a shelf. (Until 2026-10-30 it was *Sold per day ×
+days of stock*, with a days setting beside **+ Add SKU**.)
 
 Until 2026-10-29 the app chose shelves itself, from rules (who goes first,
 best shelves, sharing). That was taken out; it is in the git history before
@@ -222,8 +223,8 @@ the data as well as read it -- see the note in the next section.
 ## Live changes between users
 
 Every open page keeps a live connection to Supabase (Realtime). When anybody
-adds a SKU, edits its numbers, picks or deletes a location, or changes the
-days of stock, every other page showing the racks redraws with it within a
+adds a SKU, edits its numbers, or picks or deletes a location, every other
+page showing the racks redraws with it within a
 second or two, with no reload. Open windows (a category, the location
 picker, a shelf) stay open, and a number being typed is never overwritten.
 

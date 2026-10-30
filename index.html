@@ -4,7 +4,7 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>Rack Planner</title>
-<link rel="stylesheet" href="style.css?v=2026-10-30h" />
+<link rel="stylesheet" href="style.css?v=2026-10-30i" />
 </head>
 <body>
 
@@ -57,9 +57,6 @@
           <p class="sub" id="catHint">Click a category to see and edit its SKUs, best seller first.</p>
         </div>
         <div class="sku-tools">
-          <label class="days-field" title="Needed qty = sold per day × these days">Days of stock in 4KB
-            <input id="ruleDays" type="number" min="1" max="365" step="1" value="15" />
-          </label>
           <button class="primary" id="skuAdd" type="button">+ Add SKU</button>
         </div>
       </div>
@@ -179,7 +176,7 @@
           <label class="field"><span>Category *</span><input name="category" type="text" list="catOptions" autocomplete="off" required /></label>
           <label class="field"><span>Tier</span><input name="tier" type="text" list="tierOptions" autocomplete="off" /></label>
           <label class="field"><span>Sold per day</span><input name="soldPerDay" type="number" min="0" step="any" inputmode="decimal" /></label>
-          <label class="field"><span>Quantity</span><input name="quantity" type="number" min="0" step="any" inputmode="decimal" /></label>
+          <label class="field"><span>4KB Qty</span><input name="quantity" type="number" min="0" step="any" inputmode="decimal" value="10000" /></label>
           <label class="field"><span>Length (cm)</span><input name="length" type="number" min="0" step="any" inputmode="decimal" /></label>
           <label class="field"><span>Width (cm)</span><input name="width" type="number" min="0" step="any" inputmode="decimal" /></label>
           <label class="field"><span>Height (cm)</span><input name="height" type="number" min="0" step="any" inputmode="decimal" /></label>
@@ -303,18 +300,18 @@
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-<script src="config.js?v=2026-10-30h"></script>
-<script src="packer.js?v=2026-10-30h"></script>
-<script src="layout.js?v=2026-10-30h"></script>
-<script src="allocate.js?v=2026-10-30h"></script>
+<script src="config.js?v=2026-10-30i"></script>
+<script src="packer.js?v=2026-10-30i"></script>
+<script src="layout.js?v=2026-10-30i"></script>
+<script src="allocate.js?v=2026-10-30i"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
-<script src="db.js?v=2026-10-30h"></script>
-<script src="excel.js?v=2026-10-30h"></script>
-<script src="view3d.js?v=2026-10-30h"></script>
-<script src="view2d.js?v=2026-10-30h"></script>
-<script src="app.js?v=2026-10-30h"></script>
-<script src="soldsheet.js?v=2026-10-30h"></script>
-<script src="dashboard.js?v=2026-10-30h"></script>
-<script src="pages.js?v=2026-10-30h"></script>
+<script src="db.js?v=2026-10-30i"></script>
+<script src="excel.js?v=2026-10-30i"></script>
+<script src="view3d.js?v=2026-10-30i"></script>
+<script src="view2d.js?v=2026-10-30i"></script>
+<script src="app.js?v=2026-10-30i"></script>
+<script src="soldsheet.js?v=2026-10-30i"></script>
+<script src="dashboard.js?v=2026-10-30i"></script>
+<script src="pages.js?v=2026-10-30i"></script>
 </body>
 </html>
