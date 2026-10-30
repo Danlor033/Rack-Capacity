@@ -24,7 +24,7 @@ const Dashboard = (function () {
     ruleDays: $("ruleDays"), skuStatus: $("skuStatus"),
     catList: $("catList"), catHint: $("catHint"), skuAdd: $("skuAdd"),
     pickModal: $("pickModal"), pickTitle: $("pickTitle"), pickSub: $("pickSub"),
-    pickMap: $("pickMap"), pickClose: $("pickClose"), pickLegend: $("pickLegend"),
+    pickMap: $("pickMap"), pickClose: $("pickClose"), pickLegend: $("pickLegend"), pickHint: $("pickHint"),
     mapLegend: $("mapLegend"),
     catStats: $("catStats"), catModal: $("catModal"), catTitle: $("catTitle"), catClose: $("catClose"), catAdd: $("catAdd"), catBody: $("catBody"),
     skuDialog: $("skuDialog"), skuForm: $("skuForm"), skuFormError: $("skuFormError"),
@@ -199,6 +199,15 @@ const Dashboard = (function () {
   // pick: the result index a shelf is being picked for, when drawing the
   // picker; its own shelves are marked, and search and selection are left
   // out.
+  // How many boxes of SKU `index` still fit in the room left on a shelf.
+  // A SKU with no box size cannot be fitted anywhere already in use.
+  function roomFor(rec, index) {
+    const s = state.data.skus[index];
+    if (!rec) return Infinity;
+    if (!Allocate.hasSize(s) || rec.free < 1) return 0;
+    return state.alloc.packIn(Math.floor(rec.free + 1e-6), { l: s.length, w: s.width, h: s.height }).count;
+  }
+
   function cellHtml(row, col, layer, pick) {
     const label = Layout.label(row, col, layer);
     const rec = state.alloc.locations.get(label);
@@ -209,7 +218,8 @@ const Dashboard = (function () {
       if (state.selected === label) cls.push("selected");
       if (state.search) cls.push(matches(rec, label) ? "hit" : "dim");
     } else {
-      cls.push("pick", !rec ? "vacant" : rec.sections.some((sec) => sec.sku === pick) ? "mine" : "taken");
+      cls.push("pick", !rec ? "vacant" : rec.sections.some((sec) => sec.sku === pick) ? "mine"
+        : roomFor(rec, pick) > 0 ? "taken" : "full");
     }
 
     let inner = "";
@@ -226,6 +236,7 @@ const Dashboard = (function () {
       }
       if (rec.sections.length > 1) inner += '<b class="n">' + rec.sections.length + "</b>";
     }
+    if (pick !== undefined && cls.indexOf("full") >= 0) tip += "\nNo room left for this SKU";
     // An occupied shelf is tinted its colour all over, so a shelf with a
     // single box still reads as its category; the bar shows how full it is.
     const tint = rec ? ' style="background:color-mix(in srgb, ' + colorOf(rec.sections[0].sku) + ' 30%, transparent)"' : "";
@@ -348,18 +359,18 @@ const Dashboard = (function () {
   // rest are worked out (see worked()). w is the width in px; Locations
   // takes what is left.
   const COLUMNS = [
-    { head: "4KB Qty", w: 78, fixed: "quantity" },
-    { head: "Sold/Day", w: 74, fixed: "soldPerDay" },
-    { head: "Needed", w: 76, worked: "needed", title: "Sold per day \u00d7 days of stock" },
-    { head: "Qty/Box", w: 78, edit: "qtyPerBox" },
-    { head: "Boxes", w: 60, worked: "boxes", title: "Needed \u00f7 Qty/Box, rounded up" },
-    { head: "Per Shelf", w: 72, worked: "perShelf", title: "Boxes that fit on one empty shelf" },
-    { head: "Shelf Needed", w: 96, worked: "shelvesNeeded", title: "Boxes \u00f7 Per Shelf, rounded up" },
-    { head: "Placed", w: 60, worked: "placed" },
-    { head: "No shelf", w: 66, worked: "unplaced" },
-    { head: "L", w: 60, edit: "length" },
-    { head: "W", w: 60, edit: "width" },
-    { head: "H", w: 60, edit: "height" },
+    { head: "4KB Qty", w: 72, fixed: "quantity" },
+    { head: "Sold/Day", w: 70, fixed: "soldPerDay" },
+    { head: "Needed", w: 68, worked: "needed", title: "Sold per day \u00d7 days of stock" },
+    { head: "Qty/Box", w: 72, edit: "qtyPerBox" },
+    { head: "Boxes", w: 56, worked: "boxes", title: "Needed \u00f7 Qty/Box, rounded up" },
+    { head: "Per Shelf", w: 68, worked: "perShelf", title: "Boxes that fit on one empty shelf" },
+    { head: "Shelf Needed", w: 92, worked: "shelvesNeeded", title: "Boxes \u00f7 Per Shelf, rounded up" },
+    { head: "Placed", w: 56, worked: "placed" },
+    { head: "No shelf", w: 64, worked: "unplaced" },
+    { head: "L", w: 54, edit: "length" },
+    { head: "W", w: 54, edit: "width" },
+    { head: "H", w: 54, edit: "height" },
     { head: "Locations", w: 0, worked: "locations", cls: "locs" },
   ];
   const LEAD = 4; // #, Tier, Category, SKU
@@ -410,9 +421,13 @@ const Dashboard = (function () {
       return '<span class="loc-chip"><a href="#" data-loc="' + p.label + '">' + p.label + "</a>" +
         '<span class="loc-qty">' + fmt(p.boxes) + " box" + (p.boxes === 1 ? "" : "es") +
         (perBox ? " \u00b7 " + fmt(p.boxes * perBox) + " qty" : "") + "</span>" +
-        (shared ? '<span class="loc-mixed" title="Shared with other SKUs">mixed</span>' : "") +
-        '<button type="button" class="copy-btn" data-copy="' + p.label + '" title="Copy location" aria-label="Copy ' + p.label + '">' + COPY_ICON + "</button>" +
-        '<button type="button" class="loc-free" data-free="' + p.label + '" data-free-sku="' + r.index + '" title="Take this SKU off ' + p.label + '">\u00d7</button></span>';
+        // A shelf that filled up before this SKU got any room on it, for
+        // instance when the SKU before it was given its qty per box later.
+        (!p.boxes && r.counted && r.wanted > 0 && r.perShelf
+          ? '<span class="loc-noroom" title="The shelf is full: none of this SKU\u2019s boxes fit. Delete this location.">no room</span>'
+          : shared ? '<span class="loc-mixed" title="Shared with other SKUs">mixed</span>' : "") +
+        '<span class="loc-acts"><button type="button" class="copy-btn" data-copy="' + p.label + '" title="Copy location" aria-label="Copy ' + p.label + '">' + COPY_ICON + "</button>" +
+        '<button type="button" class="loc-free" data-free="' + p.label + '" data-free-sku="' + r.index + '" title="Delete this location" aria-label="Delete ' + p.label + '">\u00d7</button></span></span>';
     }).join("");
     const total = r.spots.length > 1 && perBox
       ? '<span class="loc-total">Total ' + fmt(r.placed) + " boxes \u00b7 " + fmt(r.placed * perBox) + " qty</span>" : "";
@@ -552,7 +567,7 @@ const Dashboard = (function () {
       });
 
     const days = state.rules.days;
-    const widths = [40, 88, 100, 270].concat(COLUMNS.map((c) => c.w));
+    const widths = [40, 80, 100, 240].concat(COLUMNS.map((c) => c.w));
     let html = "<colgroup>" + widths.map((w) => (w ? '<col style="width:' + w + 'px">' : "<col>")).join("") + "</colgroup>" +
       "<thead><tr><th>#</th><th>Tier</th><th>Category</th><th>SKU</th>" +
       COLUMNS.map(function (c) {
@@ -691,8 +706,24 @@ const Dashboard = (function () {
   el.pickMap.addEventListener("click", function (e) {
     const cell = e.target.closest(".cell[data-label]");
     if (!cell || cell.classList.contains("mine")) return;
+    if (cell.classList.contains("full")) {
+      pickNote(cell.dataset.label + " is full \u2014 there is no room left on it for this SKU. Pick another shelf.");
+      return;
+    }
     giveShelf(state.picking, cell.dataset.label);
   });
+
+  const PICK_HINT = el.pickHint.textContent;
+  let pickNoteTimer = null;
+  function pickNote(text) {
+    el.pickHint.textContent = text;
+    el.pickHint.classList.add("bad-text");
+    clearTimeout(pickNoteTimer);
+    pickNoteTimer = setTimeout(function () {
+      el.pickHint.textContent = PICK_HINT;
+      el.pickHint.classList.remove("bad-text");
+    }, 4000);
+  }
   el.pickClose.addEventListener("click", closePicker);
   el.pickModal.addEventListener("click", function (e) {
     if (e.target === el.pickModal) closePicker();
@@ -700,6 +731,10 @@ const Dashboard = (function () {
 
   async function giveShelf(index, label) {
     const r = state.alloc.results[index];
+    if (roomFor(state.alloc.locations.get(label), index) <= 0) {
+      pickNote(label + " is full \u2014 there is no room left on it for this SKU. Pick another shelf.");
+      return;
+    }
     if (!r.sku.id) {
       failed = "This SKU was loaded before shelves could be chosen \u2014 reload the page, then try again.";
       status();

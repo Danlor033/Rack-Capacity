@@ -70,8 +70,11 @@ the *Locations* column of the SKU list:
 - An **occupied** shelf is shared: the SKU goes in beside what is already
   there, without asking. Choices are worked through in the order they were
   made; each SKU puts as many of its boxes as fit in the room still free on
-  the shelf, in a slice front to back, full height. A shelf already full
-  takes none, and those boxes stay under *No shelf*.
+  the shelf, in a slice front to back, full height. A shelf with no room
+  left for at least one of the SKU's boxes is shown hatched as *Full* and
+  cannot be picked. A location that ends up with no room anyway (the SKU
+  before it filled the shelf later, say after its qty per box was set) is
+  tagged *no room* in red, for deleting.
 - A SKU can have as many shelves as it needs; its boxes fill them in the
   order they were picked. Boxes left over show under *No shelf* (in red),
   and the SKU is marked *needs more shelves* (or *pick a location*).
