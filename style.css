@@ -526,6 +526,12 @@ body.detail-open, body.cat-open { overflow: hidden; }
 .sku-tools { display: flex; gap: 8px; align-items: center; }
 .sku-tools select { width: auto; }
 .sold-sync { margin: 2px 0 0; font-size: 12px; }
+.live-sync { margin: 2px 0 0; font-size: 12px; display: flex; align-items: center; gap: 6px; }
+.live-sync::before { content: ""; width: 8px; height: 8px; border-radius: 50%; background: var(--ink-soft); flex: none; }
+.live-sync.live::before { background: var(--good); box-shadow: 0 0 0 3px color-mix(in srgb, var(--good) 25%, transparent); }
+.live-sync.connecting::before { background: var(--warn); }
+.live-sync.off { color: var(--bad); }
+.live-sync.off::before { background: var(--bad); }
 .sold-sync a { color: var(--accent); text-decoration: none; }
 .sold-sync a:hover { text-decoration: underline; }
 .sold-sync.bad-text a { color: inherit; text-decoration: underline; }

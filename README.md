@@ -219,6 +219,21 @@ PowerShell refuses to run `npx.ps1` on this PC.
 Anyone who has the address can open the online copy, and the page can change
 the data as well as read it -- see the note in the next section.
 
+## Live changes between users
+
+Every open page keeps a live connection to Supabase (Realtime). When anybody
+adds a SKU, edits its numbers, picks or deletes a location, or changes the
+days of stock, every other page showing the racks redraws with it within a
+second or two, with no reload. Open windows (a category, the location
+picker, a shelf) stay open, and a number being typed is never overwritten.
+
+- The line under the page title shows a green dot and *Live* while
+  connected. If the connection drops it reconnects by itself, and meanwhile
+  the page checks for changes every 20 seconds.
+- The tables on the live channel: rack_skus, rack_shelves, rack_imports
+  (Supabase publication supabase_realtime).
+- The client library is supabase-js 2.45.4, loaded from jsDelivr.
+
 ## Sharing through Supabase
 
 Without Supabase, the saved racks, box sizes and imported sheet live in the

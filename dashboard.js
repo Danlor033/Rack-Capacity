@@ -25,7 +25,7 @@ const Dashboard = (function () {
     catList: $("catList"), catHint: $("catHint"), skuAdd: $("skuAdd"),
     pickModal: $("pickModal"), pickTitle: $("pickTitle"), pickSub: $("pickSub"),
     pickMap: $("pickMap"), pickClose: $("pickClose"), pickLegend: $("pickLegend"), pickHint: $("pickHint"),
-    mapLegend: $("mapLegend"), soldSync: $("soldSync"),
+    mapLegend: $("mapLegend"), soldSync: $("soldSync"), liveSync: $("liveSync"),
     catStats: $("catStats"), catModal: $("catModal"), catTitle: $("catTitle"), catClose: $("catClose"), catAdd: $("catAdd"), catBody: $("catBody"),
     skuDialog: $("skuDialog"), skuForm: $("skuForm"), skuFormError: $("skuFormError"),
     skuCancel: $("skuCancel"),
@@ -919,6 +919,7 @@ const Dashboard = (function () {
       renderCategories();
       renderCatStats();
       updateSkus();
+      if (state.picking !== null) renderPicker();
     }, 0);
   }
 
@@ -1140,6 +1141,120 @@ const Dashboard = (function () {
     document.addEventListener("visibilitychange", function () { if (!document.hidden) syncSold(); });
   }
 
+  // --- changes made by others, as they happen ----------------------------------
+
+  // Every open page hears about a change to a SKU, a shelf choice or the days
+  // of stock the moment it is saved, by anybody, and redraws with it. Changes
+  // arriving together are taken in one go. What is being typed in a box is
+  // never overwritten. If the live connection drops, the page checks every
+  // 20 seconds instead until it is back.
+  const LIVE_POLL = 20 * 1000;
+  let liveTimer = null, pollTimer = null;
+  const liveWant = new Set();
+
+  function liveStatus(kind) {
+    const text = {
+      live: "Live \u2014 changes made by others appear here at once",
+      connecting: "Connecting for live changes\u2026",
+      off: "Live changes are off \u2014 checking for others' changes every 20 seconds",
+    }[kind];
+    el.liveSync.hidden = !text;
+    el.liveSync.textContent = text || "";
+    el.liveSync.className = "sub live-sync " + kind;
+    clearInterval(pollTimer);
+    if (kind === "off" && DB.configured()) {
+      pollTimer = setInterval(function () { wantLive("skus"); wantLive("shelves"); }, LIVE_POLL);
+    }
+  }
+
+  function wantLive(what) {
+    liveWant.add(what);
+    clearTimeout(liveTimer);
+    liveTimer = setTimeout(applyLive, 250);
+  }
+
+  function onLive(table, p) {
+    if (!state.data) return;
+    const id = state.data.import && state.data.import.id;
+    const row = p.new && Object.keys(p.new).length ? p.new : p.old || {};
+    if (table === DB.tables.imports) {
+      if (!id) wantLive("all");
+      else if (row.id === id) wantLive("skus");
+    } else if (table === DB.tables.shelves) {
+      if (!row.import_id || row.import_id === id) wantLive("shelves");
+    } else if (table === DB.tables.skus) {
+      if (!row.import_id || row.import_id === id) wantLive("skus");
+    }
+  }
+
+  // Bring the list in line with the database: SKUs changed in place, new ones
+  // added, deleted ones taken out. True when the table has to be redrawn
+  // (SKUs added or gone, or a name, tier or category changed).
+  function mergeSkus(fresh) {
+    const byId = new Map(state.data.skus.map((s) => [String(s.id), s]));
+    const seen = new Set();
+    let redraw = false;
+    for (const f of fresh) {
+      const key = String(f.id);
+      seen.add(key);
+      const s = byId.get(key);
+      if (!s) { state.data.skus.push(f); redraw = true; continue; }
+      if (s.sku !== f.sku || s.tier !== f.tier || s.category !== f.category) redraw = true;
+      Object.assign(s, f);
+    }
+    const before = state.data.skus.length;
+    state.data.skus = state.data.skus.filter((s) => seen.has(String(s.id)));
+    return redraw || state.data.skus.length !== before;
+  }
+
+  async function applyLive() {
+    const want = new Set(liveWant);
+    liveWant.clear();
+    try {
+      if (want.has("all") || !state.data.import) {
+        const data = await DB.imports.latest();
+        if (data && data.import) data.shelves = await DB.shelves.list(data.import.id);
+        load(data);
+        return;
+      }
+      let redraw = false;
+      if (want.has("skus")) {
+        const data = await DB.imports.latest();
+        if (!data || data.import.id !== state.data.import.id) { wantLive("all"); return; }
+        const picking = state.picking !== null ? state.data.skus[state.picking] : null;
+        redraw = mergeSkus(data.skus);
+        if (picking) {
+          state.picking = state.data.skus.indexOf(picking);
+          if (state.picking < 0) closePicker();
+        }
+        // The days of stock, set by somebody else.
+        state.data.import.rules = data.import.rules || {};
+        const days = Object.assign({}, Allocate.DEFAULT_RULES, state.data.import.rules).days;
+        if (days !== state.rules.days) {
+          state.rules = Object.assign({}, state.rules, { days: days });
+          if (document.activeElement !== el.ruleDays) el.ruleDays.value = days;
+          redraw = true;
+        }
+      }
+      if (want.has("shelves")) state.data.shelves = await DB.shelves.list(state.data.import.id);
+      if (redraw) {
+        buildColors();
+        recompute();
+        if (state.picking !== null) renderPicker();
+      } else {
+        refresh();
+      }
+    } catch (e) {
+      console.error(e);
+    }
+  }
+
+  function startLive() {
+    if (!DB.configured()) return;
+    liveStatus("connecting");
+    DB.live(onLive, liveStatus);
+  }
+
   // --- start -----------------------------------------------------------------
 
   async function start() {
@@ -1148,6 +1263,7 @@ const Dashboard = (function () {
       if (data && data.import) data.shelves = await DB.shelves.list(data.import.id);
       load(data);
       startSoldSync();
+      startLive();
     } catch (e) {
       console.error(e);
       el.empty.hidden = false;

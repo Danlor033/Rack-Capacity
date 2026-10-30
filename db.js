@@ -302,10 +302,39 @@ const DB = (function () {
     },
   };
 
+  // --- changes made by anybody, as they happen ---------------------------------
+
+  // Supabase Realtime tells every open page at once when a SKU, a shelf
+  // choice or the list's settings change, whoever changed them.
+  // onChange(table, payload) for each change; onStatus("live" | "connecting"
+  // | "off") as the connection comes and goes. It reconnects by itself.
+  function live(onChange, onStatus) {
+    if (!configured() || !window.supabase || !window.supabase.createClient) {
+      onStatus("off");
+      return null;
+    }
+    const client = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY, {
+      auth: { persistSession: false, autoRefreshToken: false },
+    });
+    const channel = client.channel("rack-planner");
+    [IMPORT_TABLE, SKU_TABLE, SHELF_TABLE].forEach(function (table) {
+      channel.on("postgres_changes", { event: "*", schema: "public", table: table }, function (payload) {
+        onChange(table, payload);
+      });
+    });
+    channel.subscribe(function (status) {
+      onStatus(status === "SUBSCRIBED" ? "live"
+        : status === "CHANNEL_ERROR" || status === "TIMED_OUT" || status === "CLOSED" ? "off" : "connecting");
+    });
+    return channel;
+  }
+
   return {
     configured: configured,
     imports: imports,
     shelves: shelves,
+    live: live,
+    tables: { imports: IMPORT_TABLE, skus: SKU_TABLE, shelves: SHELF_TABLE },
     racks: makeStore(RACK_TABLE, "rackPlanner.racks", SEED_RACKS, function (a, b) {
       if (a.is_default !== b.is_default) return a.is_default ? -1 : 1;
       return byName(a, b);

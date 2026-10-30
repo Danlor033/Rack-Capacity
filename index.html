@@ -4,7 +4,7 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>Rack Planner</title>
-<link rel="stylesheet" href="style.css?v=2026-10-30g" />
+<link rel="stylesheet" href="style.css?v=2026-10-30h" />
 </head>
 <body>
 
@@ -37,6 +37,7 @@
         <h2>4KB racks</h2>
         <p class="sub" id="dashSource">&nbsp;</p>
         <p class="sub sold-sync" id="soldSync"></p>
+        <p class="sub live-sync" id="liveSync" hidden></p>
       </div>
       <div class="dash-tools">
         <input id="dashSearch" type="search" placeholder="Find a SKU, category or location" />
@@ -302,17 +303,18 @@
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-<script src="config.js?v=2026-10-30g"></script>
-<script src="packer.js?v=2026-10-30g"></script>
-<script src="layout.js?v=2026-10-30g"></script>
-<script src="allocate.js?v=2026-10-30g"></script>
-<script src="db.js?v=2026-10-30g"></script>
-<script src="excel.js?v=2026-10-30g"></script>
-<script src="view3d.js?v=2026-10-30g"></script>
-<script src="view2d.js?v=2026-10-30g"></script>
-<script src="app.js?v=2026-10-30g"></script>
-<script src="soldsheet.js?v=2026-10-30g"></script>
-<script src="dashboard.js?v=2026-10-30g"></script>
-<script src="pages.js?v=2026-10-30g"></script>
+<script src="config.js?v=2026-10-30h"></script>
+<script src="packer.js?v=2026-10-30h"></script>
+<script src="layout.js?v=2026-10-30h"></script>
+<script src="allocate.js?v=2026-10-30h"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
+<script src="db.js?v=2026-10-30h"></script>
+<script src="excel.js?v=2026-10-30h"></script>
+<script src="view3d.js?v=2026-10-30h"></script>
+<script src="view2d.js?v=2026-10-30h"></script>
+<script src="app.js?v=2026-10-30h"></script>
+<script src="soldsheet.js?v=2026-10-30h"></script>
+<script src="dashboard.js?v=2026-10-30h"></script>
+<script src="pages.js?v=2026-10-30h"></script>
 </body>
 </html>
