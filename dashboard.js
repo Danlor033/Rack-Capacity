@@ -25,7 +25,8 @@ const Dashboard = (function () {
     catList: $("catList"), catHint: $("catHint"), skuAdd: $("skuAdd"),
     pickModal: $("pickModal"), pickTitle: $("pickTitle"), pickSub: $("pickSub"),
     pickMap: $("pickMap"), pickClose: $("pickClose"), pickLegend: $("pickLegend"), pickHint: $("pickHint"),
-    mapLegend: $("mapLegend"), soldSync: $("soldSync"), liveSync: $("liveSync"),
+    mapLegend: $("mapLegend"), soldSync: $("soldSync"), liveSync: $("liveSync"), stockSync: $("stockSync"),
+    jstDialog: $("jstDialog"), jstLink: $("jstLink"),
     catStats: $("catStats"), catModal: $("catModal"), catTitle: $("catTitle"), catClose: $("catClose"), catAdd: $("catAdd"), catBody: $("catBody"),
     skuDialog: $("skuDialog"), skuForm: $("skuForm"), skuFormError: $("skuFormError"),
     skuCancel: $("skuCancel"),
@@ -1141,6 +1142,80 @@ const Dashboard = (function () {
     document.addEventListener("visibilitychange", function () { if (!document.hidden) syncSold(); });
   }
 
+  // --- 4KB Qty from JSTERP --------------------------------------------------------
+
+  // The numbers themselves arrive as SKU changes (see below); this only says
+  // how fresh they are. jstsync.js, running in a signed-in JSTERP tab, writes
+  // them every 30 seconds and leaves a note in rack_sync each time. Two
+  // minutes without one and the feed is taken to have stopped.
+  const STOCK_FEED = "jsterp-4kb";
+  const STOCK_STALE = 2 * 60 * 1000;
+  let stockNote = null;
+
+  function ago(ms) {
+    const sec = Math.max(0, Math.round(ms / 1000));
+    if (sec < 60) return sec + " s ago";
+    const min = Math.round(sec / 60);
+    if (min < 60) return min + " min ago";
+    const h = Math.round(min / 60);
+    return h < 48 ? h + " h ago" : Math.round(h / 24) + " days ago";
+  }
+
+  function renderStockSync() {
+    const setup = ' <a href="#" data-jst-setup>Set up</a>';
+    const n = stockNote;
+    if (!n || !n.synced_at) {
+      el.stockSync.innerHTML = "4KB Qty is not coming from JSTERP yet." + setup;
+      el.stockSync.classList.add("bad-text");
+      return;
+    }
+    const age = Date.now() - new Date(n.synced_at).getTime();
+    const info = n.info || {};
+    let text;
+    if (!n.ok) {
+      text = "4KB Qty from JSTERP stopped " + ago(age) + " (" + esc(n.message || "unknown") + ")." + setup;
+    } else if (age > STOCK_STALE) {
+      text = "4KB Qty from JSTERP last updated " + ago(age) + " \u2014 the JSTERP sync tab is closed or asleep." + setup;
+    } else {
+      text = "4KB Qty live from JSTERP \u00b7 updated " + ago(age) +
+        (info.skus !== undefined ? " \u00b7 " + fmt(info.skus) + " SKUs in 4KB" : "") +
+        (info.notInPlannerCount ? " \u00b7 " + info.notInPlannerCount + " not in this list" : "");
+    }
+    el.stockSync.innerHTML = text;
+    el.stockSync.classList.toggle("bad-text", !n.ok || age > STOCK_STALE);
+  }
+
+  async function loadStockNote() {
+    try {
+      stockNote = await DB.syncs.get(STOCK_FEED);
+    } catch (e) {
+      console.error(e);
+    }
+    renderStockSync();
+  }
+
+  function startStockSync() {
+    if (!DB.configured()) return;
+    loadStockNote();
+    setInterval(renderStockSync, 10 * 1000);
+  }
+
+  // The bookmark that starts the feed in a JSTERP tab. It always loads the
+  // online copy of jstsync.js: JSTERP is https and will not run a script
+  // from the office's plain-http address.
+  const JST_SCRIPT = "https://rack-planner-acce.pages.dev/jstsync.js";
+  el.jstLink.href = "javascript:(function(){var s=document.createElement('script');s.src='" +
+    JST_SCRIPT + "?t='+Date.now();document.head.appendChild(s);})();";
+  el.jstLink.addEventListener("click", function (e) {
+    e.preventDefault();
+    alert("Drag this button to your bookmarks bar instead of clicking it here.");
+  });
+  el.stockSync.addEventListener("click", function (e) {
+    if (!e.target.closest("[data-jst-setup]")) return;
+    e.preventDefault();
+    el.jstDialog.showModal();
+  });
+
   // --- changes made by others, as they happen ----------------------------------
 
   // Every open page hears about a change to a SKU, a shelf choice or the days
@@ -1184,6 +1259,11 @@ const Dashboard = (function () {
       if (!row.import_id || row.import_id === id) wantLive("shelves");
     } else if (table === DB.tables.skus) {
       if (!row.import_id || row.import_id === id) wantLive("skus");
+    } else if (table === DB.tables.sync) {
+      if (row.name === STOCK_FEED && p.new && p.new.name) {
+        stockNote = p.new;
+        renderStockSync();
+      }
     }
   }
 
@@ -1263,6 +1343,7 @@ const Dashboard = (function () {
       if (data && data.import) data.shelves = await DB.shelves.list(data.import.id);
       load(data);
       startSoldSync();
+      startStockSync();
       startLive();
     } catch (e) {
       console.error(e);

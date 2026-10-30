@@ -637,6 +637,12 @@ body.detail-open, body.cat-open { overflow: hidden; }
   border-radius: var(--radius); background: var(--card); color: var(--ink);
   box-shadow: 0 2px 6px rgba(16, 26, 40, .12), 0 18px 48px rgba(16, 26, 40, .35);
 }
+.jst-setup { max-width: 560px; }
+.jst-setup ol { margin: 0 0 10px; padding-left: 20px; }
+.jst-setup li { margin-bottom: 8px; }
+.jst-setup a { color: var(--accent); }
+.jst-bookmark { display: inline-block; margin-left: 6px; padding: 3px 10px; border-radius: 6px; border: 1px dashed var(--accent);
+  background: color-mix(in srgb, var(--accent) 10%, transparent); font-weight: 600; text-decoration: none; cursor: grab; }
 .ask::backdrop { background: rgba(10, 16, 26, .5); }
 .ask h3 { margin: 0 0 10px; font-size: 18px; }
 .ask-body { font-size: 13.5px; line-height: 1.5; }

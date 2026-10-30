@@ -4,7 +4,7 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>Rack Planner</title>
-<link rel="stylesheet" href="style.css?v=2026-10-30j" />
+<link rel="stylesheet" href="style.css?v=2026-10-30k" />
 </head>
 <body>
 
@@ -37,6 +37,7 @@
         <h2>4KB racks</h2>
         <p class="sub" id="dashSource">&nbsp;</p>
         <p class="sub sold-sync" id="soldSync"></p>
+        <p class="sub sold-sync" id="stockSync"></p>
         <p class="sub live-sync" id="liveSync" hidden></p>
       </div>
       <div class="dash-tools">
@@ -167,6 +168,33 @@
         <div class="row-btns">
           <button class="ghost" value="no" type="submit" id="askNo">Cancel</button>
           <button class="primary" value="yes" type="submit" id="askYes">OK</button>
+        </div>
+      </form>
+    </dialog>
+
+    <!-- Starting the 4KB Qty feed in a JSTERP tab. -->
+    <dialog class="ask jst-setup" id="jstDialog" aria-labelledby="jstTitle">
+      <form method="dialog">
+        <h3 id="jstTitle">4KB Qty from JSTERP, every 30 seconds</h3>
+        <div class="ask-body">
+          <p>JSTERP only shows stock to someone signed in, so the numbers are read by a
+            JSTERP tab that stays open &mdash; best on a PC that is always on, like the office PC.
+            One tab is enough for everyone.</p>
+          <ol>
+            <li>Drag this button to your browser&rsquo;s bookmarks bar (once):
+              <a class="jst-bookmark" id="jstLink" href="#">Rack Planner 4KB sync</a></li>
+            <li>Sign in to <a href="https://asia-web.jsterp.com/" target="_blank" rel="noopener">JSTERP</a>, then open
+              <a href="https://asia.jsterp.com/Wms/Pack/PackItem" target="_blank" rel="noopener">Zone Inventory</a>.</li>
+            <li>Click the bookmark. A small box appears in the corner of JSTERP and the
+              4KB Qty here updates every 30 seconds. Leave that tab open.</li>
+          </ol>
+          <p class="sub">It reads Zone Inventory with owner Shigetsu, Main Warehouse, start position
+            4KB, and adds each SKU&rsquo;s locations together. A SKU with nothing there gets 0.
+            If JSTERP signs you out, the line under the title here turns orange &mdash; sign in
+            and click the bookmark again.</p>
+        </div>
+        <div class="row-btns">
+          <button class="primary" value="ok" type="submit">Close</button>
         </div>
       </form>
     </dialog>
@@ -303,18 +331,18 @@
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-<script src="config.js?v=2026-10-30j"></script>
-<script src="packer.js?v=2026-10-30j"></script>
-<script src="layout.js?v=2026-10-30j"></script>
-<script src="allocate.js?v=2026-10-30j"></script>
+<script src="config.js?v=2026-10-30k"></script>
+<script src="packer.js?v=2026-10-30k"></script>
+<script src="layout.js?v=2026-10-30k"></script>
+<script src="allocate.js?v=2026-10-30k"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
-<script src="db.js?v=2026-10-30j"></script>
-<script src="excel.js?v=2026-10-30j"></script>
-<script src="view3d.js?v=2026-10-30j"></script>
-<script src="view2d.js?v=2026-10-30j"></script>
-<script src="app.js?v=2026-10-30j"></script>
-<script src="soldsheet.js?v=2026-10-30j"></script>
-<script src="dashboard.js?v=2026-10-30j"></script>
-<script src="pages.js?v=2026-10-30j"></script>
+<script src="db.js?v=2026-10-30k"></script>
+<script src="excel.js?v=2026-10-30k"></script>
+<script src="view3d.js?v=2026-10-30k"></script>
+<script src="view2d.js?v=2026-10-30k"></script>
+<script src="app.js?v=2026-10-30k"></script>
+<script src="soldsheet.js?v=2026-10-30k"></script>
+<script src="dashboard.js?v=2026-10-30k"></script>
+<script src="pages.js?v=2026-10-30k"></script>
 </body>
 </html>

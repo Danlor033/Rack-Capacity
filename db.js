@@ -302,6 +302,19 @@ const DB = (function () {
     },
   };
 
+  // --- what the outside feeds last did -------------------------------------------
+
+  // One row per feed (name "jsterp-4kb": the 4KB Qty from JSTERP), written
+  // by the feed each time it runs: when, whether it worked, and its counts.
+  const SYNC_TABLE = "rack_sync";
+  const syncs = {
+    async get(name) {
+      if (!configured()) return null;
+      const rows = await rest(SYNC_TABLE, { query: "?select=*&name=eq." + encodeURIComponent(name) });
+      return rows && rows[0] ? rows[0] : null;
+    },
+  };
+
   // --- changes made by anybody, as they happen ---------------------------------
 
   // Supabase Realtime tells every open page at once when a SKU, a shelf
@@ -317,7 +330,7 @@ const DB = (function () {
       auth: { persistSession: false, autoRefreshToken: false },
     });
     const channel = client.channel("rack-planner");
-    [IMPORT_TABLE, SKU_TABLE, SHELF_TABLE].forEach(function (table) {
+    [IMPORT_TABLE, SKU_TABLE, SHELF_TABLE, SYNC_TABLE].forEach(function (table) {
       channel.on("postgres_changes", { event: "*", schema: "public", table: table }, function (payload) {
         onChange(table, payload);
       });
@@ -334,7 +347,8 @@ const DB = (function () {
     imports: imports,
     shelves: shelves,
     live: live,
-    tables: { imports: IMPORT_TABLE, skus: SKU_TABLE, shelves: SHELF_TABLE },
+    syncs: syncs,
+    tables: { imports: IMPORT_TABLE, skus: SKU_TABLE, shelves: SHELF_TABLE, sync: SYNC_TABLE },
     racks: makeStore(RACK_TABLE, "rackPlanner.racks", SEED_RACKS, function (a, b) {
       if (a.is_default !== b.is_default) return a.is_default ? -1 : 1;
       return byName(a, b);
