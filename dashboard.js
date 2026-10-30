@@ -434,8 +434,21 @@ const Dashboard = (function () {
       ? '<span class="loc-total">Total ' + fmt(r.placed) + " boxes \u00b7 " + fmt(r.placed * perBox) + " qty</span>" : "";
     const note = r.problem && r.problem !== "none-needed"
       ? '<span class="tag' + (needsAttention(r) ? " bad" : "") + '">' + WHY[r.problem] + "</span>" : "";
-    return where + total + '<span class="loc-foot"><button type="button" class="ghost small loc-pick" data-pick="' + r.index +
-      '">+ Select location</button>' + note + "</span>";
+    const why = whyNoLocation(r);
+    return where + total + '<span class="loc-foot"><button type="button" class="ghost small loc-pick" data-pick="' + r.index + '"' +
+      (why ? ' disabled title="' + esc(why) + '"' : "") + ">+ Select location</button>" + note + "</span>";
+  }
+
+  // Another location is only for boxes still waiting under No shelf, and
+  // only when a box can go on a shelf at all. Null when one may be added,
+  // otherwise why not.
+  function whyNoLocation(r) {
+    if (!r.counted) return "Fill in Qty/Box first — the boxes cannot be counted without it.";
+    if (r.wanted <= 0) return "No boxes are needed.";
+    if (!Allocate.hasSize(r.sku)) return "Fill in L, W and H first.";
+    if (!r.perShelf) return "The box is bigger than a shelf.";
+    if (r.unplaced <= 0) return "Every box already has a shelf — nothing left under No shelf.";
+    return null;
   }
 
   // The value of one worked-out column for a SKU.
@@ -708,6 +721,7 @@ const Dashboard = (function () {
   // Picking a shelf on the rack map. Vacant shelves are given at once; an
   // occupied one asks first.
   function openPicker(index) {
+    if (whyNoLocation(state.alloc.results[index])) return;
     state.picking = index;
     renderPicker();
     el.pickModal.hidden = false;
@@ -762,6 +776,8 @@ const Dashboard = (function () {
 
   async function giveShelf(index, label) {
     const r = state.alloc.results[index];
+    const why = whyNoLocation(r);
+    if (why) { pickNote(why); return; }
     if (roomFor(state.alloc.locations.get(label), index) <= 0) {
       pickNote(label + " is full \u2014 there is no room left on it for this SKU. Pick another shelf.");
       return;

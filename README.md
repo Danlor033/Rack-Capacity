@@ -75,6 +75,9 @@ the *Locations* column of the SKU list:
   cannot be picked. A location that ends up with no room anyway (the SKU
   before it filled the shelf later, say after its qty per box was set) is
   tagged *no room* in red, for deleting.
+- **+ Select location** is greyed out, with the reason on hover, when the
+  SKU has nothing left under *No shelf*, or its boxes cannot be counted or
+  fitted yet (no Qty/Box, no L/W/H, box bigger than a shelf, none needed).
 - A SKU can have as many shelves as it needs; its boxes fill them in the
   order they were picked. Boxes left over show under *No shelf* (in red),
   and the SKU is marked *needs more shelves* (or *pick a location*).

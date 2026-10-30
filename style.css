@@ -556,6 +556,7 @@ body.detail-open, body.cat-open { overflow: hidden; }
 }
 .loc-free:hover { border-color: var(--bad); background: color-mix(in srgb, var(--bad) 14%, transparent); }
 #skuTable .loc-pick { padding: 2px 8px; font-size: 12px; }
+#skuTable .loc-pick:disabled { opacity: .4; cursor: not-allowed; }
 
 /* ---- picking a shelf on the rack map ---- */
 .pick-modal { z-index: 45; }
