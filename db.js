@@ -260,31 +260,33 @@ const DB = (function () {
   }
 
   const shelves = {
-    // [{ label, sku, at }], oldest first: a SKU's boxes fill its shelves in
-    // the order they were given.
+    // [{ label, sku, qty, at }], oldest first: a SKU's boxes fill its
+    // shelves in the order they were given. qty: the units moved there, or
+    // null for as many as fit.
     async list(importId) {
       if (!configured()) return localShelves().filter((a) => a.importId === importId);
       const rows = await rest(SHELF_TABLE, {
-        query: "?select=label,sku_id,assigned_at&import_id=eq." + importId + "&order=assigned_at&limit=" + PAGE,
+        query: "?select=label,sku_id,qty,assigned_at&import_id=eq." + importId + "&order=assigned_at&limit=" + PAGE,
       });
-      return rows.map((r) => ({ label: r.label, sku: r.sku_id, at: r.assigned_at }));
+      return rows.map((r) => ({ label: r.label, sku: r.sku_id, qty: r.qty === null ? null : Number(r.qty), at: r.assigned_at }));
     },
 
-    // Put a SKU on a shelf, beside whatever is already there.
-    async assign(importId, label, skuId) {
+    // Put qty units of a SKU on a shelf, beside whatever is already there.
+    async assign(importId, label, skuId, qty) {
       const at = new Date().toISOString();
+      const units = qty > 0 ? qty : null;
       if (!configured()) {
         const all = localShelves().filter((a) => !(a.importId === importId && a.label === label && a.sku === skuId));
-        all.push({ importId: importId, label: label, sku: skuId, at: at });
+        all.push({ importId: importId, label: label, sku: skuId, qty: units, at: at });
         localStorage.setItem(LOCAL_SHELVES, JSON.stringify(all));
-        return { label: label, sku: skuId, at: at };
+        return { label: label, sku: skuId, qty: units, at: at };
       }
       await rest(SHELF_TABLE, {
         method: "POST", query: "?on_conflict=import_id,label,sku_id",
-        body: [{ import_id: importId, label: label, sku_id: skuId, assigned_at: at }],
+        body: [{ import_id: importId, label: label, sku_id: skuId, qty: units, assigned_at: at }],
         prefer: "resolution=ignore-duplicates,return=minimal",
       });
-      return { label: label, sku: skuId, at: at };
+      return { label: label, sku: skuId, qty: units, at: at };
     },
 
     // Take one SKU off a shelf; anything else on it stays.

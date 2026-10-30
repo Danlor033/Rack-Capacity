@@ -643,6 +643,9 @@ body.detail-open, body.cat-open { overflow: hidden; }
 .jst-setup a { color: var(--accent); }
 .jst-bookmark { display: inline-block; margin-left: 6px; padding: 3px 10px; border-radius: 6px; border: 1px dashed var(--accent);
   background: color-mix(in srgb, var(--accent) 10%, transparent); font-weight: 600; text-decoration: none; cursor: grab; }
+.ask-field { display: grid; gap: 4px; margin-top: 4px; }
+.ask-field input { font-size: 18px; font-weight: 600; padding: 8px 10px; }
+.ask-field small { font-size: 12px; line-height: 1.4; }
 .ask::backdrop { background: rgba(10, 16, 26, .5); }
 .ask h3 { margin: 0 0 10px; font-size: 18px; }
 .ask-body { font-size: 13.5px; line-height: 1.5; }

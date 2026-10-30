@@ -202,7 +202,7 @@ const Excel = (function () {
     for (const rec of shelves) {
       for (const sec of rec.sections) {
         const s = skus[sec.sku];
-        const qty = s.qtyPerBox > 0 ? sec.boxes * s.qtyPerBox : "";
+        const qty = s.qtyPerBox > 0 ? sec.qty : "";
         byShelf.push([rec.label, rec.row, rec.col, rec.layer, s.sku, s.category, s.tier,
           sec.boxes, qty, size(s), Math.round(rec.fill * 100)]);
       }

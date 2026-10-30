@@ -66,13 +66,13 @@ Two numbers are worked out, not typed:
 
 - **Needed qty** = *Sold per day × days*, where days is a setting on the
   Racks page (15 to start with).
-- **Boxes** = *Needed qty ÷ Qty per box*, **rounded up** -- a part-full
-  carton still takes a whole carton's room on the shelf. Shelf Needed comes
-  from these.
-- **No shelf** counts the stock instead: *4KB Qty ÷ Qty per box*, rounded
-  up, less the boxes already on shelves. Locations can be added while any of
-  those are left, whatever the sales say. (Every SKU's 4KB Qty was set to
-  10,000 on 2026-10-30; a new SKU starts at 10,000.)
+- **Boxes** = *4KB Qty ÷ Qty per box*, **rounded up** -- a part-full
+  carton still takes a whole carton's room on the shelf. Shelf Needed
+  (Boxes ÷ Per Shelf) comes from these. Needed (sales) is shown beside
+  them but does not change the box count.
+- **No shelf** = Boxes less the boxes already on shelves. Locations can be
+  added while any are left, whatever the sales say. The 4KB Qty itself
+  comes from JSTERP (see below).
 
 Other PCs see a change the next time they load the page.
 
@@ -86,7 +86,11 @@ the *Locations* column of the SKU list:
 
 - **+ Select location** opens the rack map for that SKU: vacant shelves
   outlined green, occupied ones in their SKU's colour, and the SKU's own
-  shelves ringed. Clicking a shelf puts the SKU on it at once.
+  shelves ringed. Clicking a shelf asks the **quantity to move** there:
+  up to what is still without a shelf, and no more than the room on that
+  shelf holds. The quantity becomes boxes rounded up (500 qty at 195 a box
+  is 3 boxes). Locations picked before 2026-10-30 have no quantity and take
+  as many boxes as fit.
 - An **occupied** shelf is shared: a window lists what is already on it
   and asks before the SKU goes in beside them. Choices are worked through in the order they were
   made; each SKU puts as many of its boxes as fit in the room still free on
@@ -113,9 +117,8 @@ The list's columns, after #, Tier, Category and SKU: 4KB Qty, Sold/Day,
 Needed, Qty/Box, Boxes, Per Shelf, Shelf Needed (Boxes ÷ Per Shelf, rounded
 up), Placed, No shelf, L, W, H, Locations.
 
-**Days of stock in 4KB** (beside **+ Add SKU**) sets how many boxes each SKU
-needs: *Sold per day × days ÷ Qty per box*, rounded up. Boxes may be turned
-any way to fit a shelf.
+**Days of stock in 4KB** (beside **+ Add SKU**) sets Needed: *Sold per day ×
+days*. Boxes may be turned any way to fit a shelf.
 
 Until 2026-10-29 the app chose shelves itself, from rules (who goes first,
 best shelves, sharing). That was taken out; it is in the git history before

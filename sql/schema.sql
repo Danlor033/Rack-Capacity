@@ -100,6 +100,7 @@ create table if not exists rack_shelves (
   import_id    uuid not null references rack_imports(id) on delete cascade,
   label        text not null,
   sku_id       bigint not null references rack_skus(id) on delete cascade,
+  qty          numeric check (qty is null or qty > 0), -- units moved there; null: as many as fit
   assigned_at  timestamptz not null default now(),
   primary key (import_id, label, sku_id)
 );

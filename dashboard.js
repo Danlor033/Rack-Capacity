@@ -30,7 +30,8 @@ const Dashboard = (function () {
     catStats: $("catStats"), catModal: $("catModal"), catTitle: $("catTitle"), catClose: $("catClose"), catAdd: $("catAdd"), catBody: $("catBody"),
     skuDialog: $("skuDialog"), skuForm: $("skuForm"), skuFormError: $("skuFormError"),
     skuCancel: $("skuCancel"),
-    askDialog: $("askDialog"), askTitle: $("askTitle"), askBody: $("askBody"), askYes: $("askYes"), askNo: $("askNo"), catOptions: $("catOptions"), tierOptions: $("tierOptions"),
+    askDialog: $("askDialog"), askTitle: $("askTitle"), askField: $("askField"), askFieldLabel: $("askFieldLabel"),
+    askInput: $("askInput"), askHint: $("askHint"), askError: $("askError"), askBody: $("askBody"), askYes: $("askYes"), askNo: $("askNo"), catOptions: $("catOptions"), tierOptions: $("tierOptions"),
   };
 
   const state = {
@@ -335,7 +336,7 @@ const Dashboard = (function () {
         fact("Sold per day", fmt(s.soldPerDay)) +
         fact("Qty per box", s.qtyPerBox > 0 ? fmt(s.qtyPerBox) : "") +
         fact("Boxes on shelf", "<b>" + fmt(sec.boxes) + "</b>") +
-        fact("Qty on shelf", s.qtyPerBox > 0 ? fmt(sec.boxes * s.qtyPerBox) : "") +
+        fact("Qty on shelf", s.qtyPerBox > 0 ? fmt(sec.qty) : "") +
         fact("Box size (L × W × H)", [s.length, s.width, s.height].join(" × ") + " cm", true) +
         "</dl></article>";
     });
@@ -365,7 +366,7 @@ const Dashboard = (function () {
     { head: "Sold/Day", w: 70, worked: "sold", title: "Live from the Google Sheet, column D" },
     { head: "Needed", w: 68, worked: "needed", title: "Sold per day \u00d7 days of stock" },
     { head: "Qty/Box", w: 72, edit: "qtyPerBox" },
-    { head: "Boxes", w: 56, worked: "boxes", title: "Needed \u00f7 Qty/Box, rounded up" },
+    { head: "Boxes", w: 56, worked: "boxes", title: "4KB Qty \u00f7 Qty/Box, rounded up" },
     { head: "Per Shelf", w: 68, worked: "perShelf", title: "Boxes that fit on one empty shelf" },
     { head: "Shelf Needed", w: 92, worked: "shelvesNeeded", title: "Boxes \u00f7 Per Shelf, rounded up" },
     { head: "Placed", w: 56, worked: "placed" },
@@ -422,7 +423,7 @@ const Dashboard = (function () {
       const shared = (state.alloc.locations.get(p.label) || { sections: [] }).sections.length > 1;
       return '<span class="loc-chip"><a href="#" data-loc="' + p.label + '">' + p.label + "</a>" +
         '<span class="loc-qty">' + fmt(p.boxes) + " box" + (p.boxes === 1 ? "" : "es") +
-        (perBox ? " \u00b7 " + fmt(p.boxes * perBox) + " qty" : "") + "</span>" +
+        (perBox ? " \u00b7 " + fmt(p.qty) + " qty" : "") + "</span>" +
         // A shelf that filled up before this SKU got any room on it, for
         // instance when the SKU before it was given its qty per box later.
         (!p.boxes && r.counted && r.stock > 0 && r.perShelf
@@ -432,7 +433,7 @@ const Dashboard = (function () {
         '<button type="button" class="loc-free" data-free="' + p.label + '" data-free-sku="' + r.index + '" title="Delete this location" aria-label="Delete ' + p.label + '">\u00d7</button></span></span>';
     }).join("");
     const total = r.spots.length > 1 && perBox
-      ? '<span class="loc-total">Total ' + fmt(r.placed) + " boxes \u00b7 " + fmt(r.placed * perBox) + " qty</span>" : "";
+      ? '<span class="loc-total">Total ' + fmt(r.placed) + " boxes \u00b7 " + fmt(r.placedQty) + " qty</span>" : "";
     const note = r.problem
       ? '<span class="tag' + (needsAttention(r) ? " bad" : "") + '">' + WHY[r.problem] + "</span>" : "";
     const why = whyNoLocation(r);
@@ -457,9 +458,9 @@ const Dashboard = (function () {
     switch (key) {
       case "sold": return fmt(r.sku.soldPerDay);
       case "needed": return fmt(r.needed);
-      case "boxes": return "<b>" + (r.problem === "no-count" ? "?" : fmt(r.wanted)) + "</b>";
+      case "boxes": return "<b>" + (r.problem === "no-count" ? "?" : fmt(r.stock)) + "</b>";
       case "perShelf": return r.perShelf ? fmt(r.perShelf) : "";
-      case "shelvesNeeded": return r.perShelf && r.counted && r.wanted > 0 ? fmt(Math.ceil(r.wanted / r.perShelf)) : "";
+      case "shelvesNeeded": return r.perShelf && r.counted && r.stock > 0 ? fmt(Math.ceil(r.stock / r.perShelf)) : "";
       case "placed": return fmt(r.placed);
       case "unplaced": return r.unplaced ? '<span class="pending">' + fmt(r.unplaced) + "</span>" : "";
       case "locations": return locationsHtml(r);
@@ -692,23 +693,63 @@ const Dashboard = (function () {
 
   // A question in a window of its own, over everything else. Resolves true
   // for the confirm button, false for Cancel, Esc or clicking outside.
+  // With opts.number ({ label, value, max, hint }) it asks for a whole number
+  // from 1 to max instead, and resolves that number, or null.
+  // The answer is taken from the button pressed (or Esc, or a click outside)
+  // at that moment, not from the dialog's close event, which a browser may
+  // hold back until it next draws the page.
+  let askNumber = null;
+  let askSettle = null;
   function ask(opts) {
     return new Promise(function (resolve) {
+      askSettle = function (yes) {
+        askSettle = null;
+        resolve(askNumber ? (yes ? Number(el.askInput.value) : null) : yes);
+      };
       el.askTitle.textContent = opts.title;
       el.askBody.innerHTML = opts.body;
       el.askYes.textContent = opts.yes || "OK";
       el.askYes.classList.toggle("danger", !!opts.danger);
+      askNumber = opts.number || null;
+      el.askField.hidden = !askNumber;
+      el.askError.hidden = true;
+      if (askNumber) {
+        el.askFieldLabel.textContent = askNumber.label;
+        el.askInput.max = askNumber.max;
+        el.askInput.value = askNumber.value;
+        el.askHint.textContent = askNumber.hint || "";
+      }
       el.askDialog.returnValue = "";
-      el.askDialog.addEventListener("close", function done() {
-        el.askDialog.removeEventListener("close", done);
-        resolve(el.askDialog.returnValue === "yes");
-      });
       el.askDialog.showModal();
-      el.askNo.focus();
+      if (askNumber) { el.askInput.focus(); el.askInput.select(); } else el.askNo.focus();
     });
   }
+  el.askDialog.querySelector("form").addEventListener("submit", function (e) {
+    if (askSettle) askSettle(!!e.submitter && e.submitter.value === "yes");
+  });
+  el.askDialog.addEventListener("cancel", function () { if (askSettle) askSettle(false); });
+  el.askDialog.addEventListener("close", function () { if (askSettle) askSettle(el.askDialog.returnValue === "yes"); });
   el.askDialog.addEventListener("click", function (e) {
-    if (e.target === el.askDialog) el.askDialog.close("no");
+    if (e.target !== el.askDialog) return;
+    if (askSettle) askSettle(false);
+    el.askDialog.close("no");
+  });
+  // A number out of range keeps the window open and says why.
+  el.askYes.addEventListener("click", function (e) {
+    if (!askNumber) return;
+    const v = Number(el.askInput.value);
+    if (!(Number.isInteger(v) && v >= 1 && v <= askNumber.max)) {
+      e.preventDefault();
+      el.askError.textContent = "Enter a whole number from 1 to " + fmt(askNumber.max) + ".";
+      el.askError.hidden = false;
+      el.askInput.focus();
+    }
+  });
+  // Enter in the box means OK, not the first button (Cancel).
+  el.askInput.addEventListener("keydown", function (e) {
+    if (e.key !== "Enter") return;
+    e.preventDefault();
+    el.askYes.click();
   });
 
   // One SKU as a line in a question: colour, code, and what it has there.
@@ -741,7 +782,8 @@ const Dashboard = (function () {
     el.pickTitle.textContent = r.sku.sku;
     const vacant = Layout.count - state.alloc.locations.size;
     const facts = [catName(r.sku.category)];
-    if (r.counted && r.wanted > 0) facts.push(fmt(r.wanted) + (r.wanted === 1 ? " box" : " boxes") + " needed");
+    if (r.counted && r.stock > 0) facts.push(fmt(r.unplaced) + " of " + fmt(r.stock) + (r.stock === 1 ? " box" : " boxes") +
+      " (" + fmt(r.qtyLeft) + " qty) still to place");
     if (r.perShelf) facts.push(fmt(r.perShelf) + " fit on a shelf");
     facts.push(r.spots.length ? "on " + r.spots.map((p) => p.label).join(", ") : "no shelf yet");
     facts.push(vacant + " shelves vacant");
@@ -789,28 +831,35 @@ const Dashboard = (function () {
       status();
       return;
     }
+    // How much may go: what is still without a shelf, and what fits here.
     const rec = state.alloc.locations.get(label);
-    if (rec) {
-      const room = roomFor(rec, index);
-      const boxes = r.counted ? Math.min(room, Math.max(0, r.unplaced)) : 0;
-      const n = rec.sections.length + 1;
-      const ok = await ask({
-        title: "Mix " + n + " SKUs in " + label + "?",
-        body: "<p>" + label + " already holds:</p><ul class=\"ask-list\">" +
-          rec.sections.map((sec) => askLine(sec.sku, fmt(sec.boxes) + " box" + (sec.boxes === 1 ? "" : "es"))).join("") +
-          askLine(index, r.counted ? "+ " + fmt(boxes) + " box" + (boxes === 1 ? "" : "es") : "no qty per box", true) + "</ul>" +
-          "<p>" + esc(r.sku.sku) + " goes in beside " + (rec.sections.length === 1 ? "it" : "them") + ", in the " +
-          Math.round(rec.free) + " cm of shelf still free.</p>",
-        yes: "Mix them",
-      });
-      if (!ok) return;
+    const perBox = r.sku.qtyPerBox;
+    const roomBoxes = rec ? roomFor(rec, index) : r.perShelf;
+    const max = Math.max(0, Math.min(r.qtyLeft, Math.min(roomBoxes, r.unplaced) * perBox));
+    if (max < 1) {
+      pickNote("Nothing of " + r.sku.sku + " is left to move.");
+      return;
     }
+    const limit = "Up to " + fmt(max) + ". " + fmt(r.qtyLeft) + " qty still without a shelf; " +
+      (rec ? "the " + Math.round(rec.free) + " cm still free here" : "this empty shelf") + " holds " +
+      fmt(roomBoxes) + " box" + (roomBoxes === 1 ? "" : "es") + " of " + fmt(perBox) + " (" + fmt(roomBoxes * perBox) + " qty).";
+    const qty = await ask({
+      title: rec ? "Mix " + (rec.sections.length + 1) + " SKUs in " + label + "?" : "Move " + r.sku.sku + " to " + label,
+      body: rec
+        ? "<p>" + label + " already holds:</p><ul class=\"ask-list\">" +
+          rec.sections.map((sec) => askLine(sec.sku, fmt(sec.qty) + " qty \u00b7 " + fmt(sec.boxes) + " box" + (sec.boxes === 1 ? "" : "es"))).join("") +
+          askLine(index, "goes in beside " + (rec.sections.length === 1 ? "it" : "them"), true) + "</ul>"
+        : '<ul class="ask-list">' + askLine(index, fmt(r.qtyLeft) + " qty without a shelf", true) + "</ul>",
+      yes: rec ? "Mix them" : "Move here",
+      number: { label: "Quantity to move", value: max, max: max, hint: limit },
+    });
+    if (qty === null) return;
     failed = null;
     saving++;
     status();
     try {
       const head = await ensureImport();
-      const given = await DB.shelves.assign(head.id, label, r.sku.id);
+      const given = await DB.shelves.assign(head.id, label, r.sku.id, qty);
       state.data.shelves = state.data.shelves.concat([given]);
       closePicker();
       refresh();
@@ -831,7 +880,7 @@ const Dashboard = (function () {
     const others = rec ? rec.sections.filter((sec) => sec.sku !== index) : [];
     const ok = await ask({
       title: "Delete location " + label + "?",
-      body: '<ul class="ask-list">' + askLine(index, mine ? fmt(mine.boxes) + " box" + (mine.boxes === 1 ? "" : "es") + " here" : "") + "</ul>" +
+      body: '<ul class="ask-list">' + askLine(index, mine ? fmt(mine.qty) + " qty \u00b7 " + fmt(mine.boxes) + " box" + (mine.boxes === 1 ? "" : "es") + " here" : "") + "</ul>" +
         "<p>" + esc(r.sku.sku) + " is taken off " + label + "." +
         (others.length ? " The " + (others.length === 1 ? "other SKU stays" : others.length + " other SKUs stay") + " on it."
           : " The shelf will be vacant.") +

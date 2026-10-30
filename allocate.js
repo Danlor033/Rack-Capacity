@@ -90,8 +90,10 @@ const Allocate = (function () {
     return { l: s.length, w: s.width, h: s.height };
   }
 
-  // skus: the list. shelves: [{ label, sku }] -- sku being the SKU's id --
-  // in the order the shelves were given. One entry per SKU on a shelf.
+  // skus: the list. shelves: [{ label, sku, qty }] -- sku being the SKU's
+  // id, qty the units moved there (null: as many as fit, as for shelves
+  // picked before a quantity was asked) -- in the order the shelves were
+  // given. One entry per SKU on a shelf.
   function place(skus, shelves, rulesIn) {
     const rules = Object.assign({}, DEFAULT_RULES, rulesIn || {});
     const shelf = Layout.SHELF;
@@ -117,6 +119,7 @@ const Allocate = (function () {
         index: i, order: i, sku: s, needed: neededQty(s, days),
         wanted: wanted === null ? 0 : wanted, stock: stock === null ? 0 : stock,
         counted: stock !== null && wanted !== null, placed: 0, unplaced: 0,
+        placedQty: 0, qtyLeft: Math.max(0, num(s.quantity)),
         perShelf: 0, spots: [], problem: null,
       };
     });
@@ -155,17 +158,25 @@ const Allocate = (function () {
         };
         locations.set(a.label, rec);
       }
-      // As many of the SKU's remaining boxes as fit in the room still free.
+      // The boxes the quantity moved here comes to (a part-full carton is a
+      // whole one), but no more than are left under No shelf or fit in the
+      // room still free. No quantity: as many as fit.
       const s = r.sku;
+      const perBox = num(s.qtyPerBox);
+      const asked = num(a.qty) > 0 ? num(a.qty) : null;
       let boxes = 0, cut = { len: 0, packLen: 0 };
       if (left.get(r) > 0 && r.perShelf && rec.free > 1) {
-        boxes = Math.min(left.get(r), packIn(Math.floor(rec.free + EPS), boxOf(s)).count);
+        const want = asked !== null && perBox > 0 ? Math.ceil(asked / perBox - EPS) : Infinity;
+        boxes = Math.min(left.get(r), want, packIn(Math.floor(rec.free + EPS), boxOf(s)).count);
         if (boxes) cut = slice(boxes, boxOf(s));
       }
-      rec.sections.push({ sku: r.index, x: shelf.l - rec.free, len: cut.len, packLen: cut.packLen, boxes: boxes });
+      const qty = perBox > 0 ? Math.min(asked !== null ? asked : Infinity, boxes * perBox, r.qtyLeft) : 0;
+      r.qtyLeft -= qty;
+      r.placedQty += qty;
+      rec.sections.push({ sku: r.index, x: shelf.l - rec.free, len: cut.len, packLen: cut.packLen, boxes: boxes, qty: qty });
       rec.free -= cut.len;
       left.set(r, left.get(r) - boxes);
-      r.spots.push({ label: a.label, boxes: boxes });
+      r.spots.push({ label: a.label, boxes: boxes, qty: qty, asked: asked });
     }
 
     for (const r of results) {

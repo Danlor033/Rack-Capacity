@@ -4,7 +4,7 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>Rack Planner</title>
-<link rel="stylesheet" href="style.css?v=2026-10-30k" />
+<link rel="stylesheet" href="style.css?v=2026-10-30l" />
 </head>
 <body>
 
@@ -165,6 +165,12 @@
       <form method="dialog">
         <h3 id="askTitle">&nbsp;</h3>
         <div class="ask-body" id="askBody"></div>
+        <label class="field ask-field" id="askField" hidden>
+          <span id="askFieldLabel"></span>
+          <input id="askInput" type="number" min="1" step="1" inputmode="numeric" />
+          <small class="sub" id="askHint"></small>
+          <small class="bad-text" id="askError" hidden></small>
+        </label>
         <div class="row-btns">
           <button class="ghost" value="no" type="submit" id="askNo">Cancel</button>
           <button class="primary" value="yes" type="submit" id="askYes">OK</button>
@@ -331,18 +337,18 @@
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-<script src="config.js?v=2026-10-30k"></script>
-<script src="packer.js?v=2026-10-30k"></script>
-<script src="layout.js?v=2026-10-30k"></script>
-<script src="allocate.js?v=2026-10-30k"></script>
+<script src="config.js?v=2026-10-30l"></script>
+<script src="packer.js?v=2026-10-30l"></script>
+<script src="layout.js?v=2026-10-30l"></script>
+<script src="allocate.js?v=2026-10-30l"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
-<script src="db.js?v=2026-10-30k"></script>
-<script src="excel.js?v=2026-10-30k"></script>
-<script src="view3d.js?v=2026-10-30k"></script>
-<script src="view2d.js?v=2026-10-30k"></script>
-<script src="app.js?v=2026-10-30k"></script>
-<script src="soldsheet.js?v=2026-10-30k"></script>
-<script src="dashboard.js?v=2026-10-30k"></script>
-<script src="pages.js?v=2026-10-30k"></script>
+<script src="db.js?v=2026-10-30l"></script>
+<script src="excel.js?v=2026-10-30l"></script>
+<script src="view3d.js?v=2026-10-30l"></script>
+<script src="view2d.js?v=2026-10-30l"></script>
+<script src="app.js?v=2026-10-30l"></script>
+<script src="soldsheet.js?v=2026-10-30l"></script>
+<script src="dashboard.js?v=2026-10-30l"></script>
+<script src="pages.js?v=2026-10-30l"></script>
 </body>
 </html>
