@@ -29,7 +29,7 @@ const View3D = (function () {
     fill.position.set(-1, 0.4, -0.8);
     scene.add(fill);
 
-    let boxMesh = null, rackLines = null, floor = null;
+    let boxMesh = null, rackLines = null, floor = null, marks = null;
     let radius = 400, theta = Math.PI * 0.25, phi = Math.PI * 0.32;
     const pan = new THREE.Vector3();
     let needsDraw = true;
@@ -86,6 +86,40 @@ const View3D = (function () {
       needsDraw = true;
     }, { passive: false });
 
+    // Labels: plain HTML tags over the canvas, each pinned to a point in the
+    // scene and moved there every time the view is drawn. They stay sharp at
+    // any zoom and never catch the mouse.
+    const tagLayer = document.createElement("div");
+    tagLayer.className = "v3d-tags";
+    canvas.parentElement.appendChild(tagLayer);
+    let tags = [];
+    const projected = new THREE.Vector3();
+
+    function setTags(list) {
+      tagLayer.innerHTML = "";
+      tags = list.map(function (t) {
+        const node = document.createElement("span");
+        node.className = "v3d-tag " + (t.cls || "");
+        node.textContent = t.text;
+        if (t.title) node.title = t.title;
+        tagLayer.appendChild(node);
+        return { node: node, at: t.at };
+      });
+    }
+
+    function placeTags() {
+      const w = canvas.clientWidth, h = canvas.clientHeight;
+      for (const t of tags) {
+        projected.copy(t.at).project(camera);
+        const off = projected.z > 1 || projected.z < -1;
+        t.node.style.display = off ? "none" : "";
+        if (!off) {
+          t.node.style.transform = "translate(" + ((projected.x + 1) / 2 * w).toFixed(1) + "px," +
+            ((1 - projected.y) / 2 * h).toFixed(1) + "px) translate(-50%,-50%)";
+        }
+      }
+    }
+
     function loop() {
       requestAnimationFrame(loop);
       if (!needsDraw) return;
@@ -98,6 +132,7 @@ const View3D = (function () {
       );
       camera.lookAt(pan.x, pan.y, pan.z);
       renderer.render(scene, camera);
+      placeTags();
     }
 
     function clear(obj) {
@@ -130,14 +165,100 @@ const View3D = (function () {
       scene.add(floor);
     }
 
+    // Which of the box's own sides -- L, W, H -- runs along each axis of the
+    // rack for a box turned to (along, across, up). Sides of equal size are
+    // told apart by taking each one once, in L, W, H order.
+    function sidesOf(turned, own) {
+      const left = [["L", own.l], ["W", own.w], ["H", own.h]];
+      return turned.map(function (v) {
+        const i = left.findIndex((d) => Math.abs(d[1] - v) < 1e-6);
+        return i < 0 ? "?" : left.splice(i, 1)[0][0];
+      });
+    }
+
+    // The rack's own size along its three edges, and on one box of each
+    // kind (each way it is turned, per SKU) which side is L, W and H: the
+    // box nearest the starting view, outlined.
+    function label(rack, placements, opts) {
+      if (marks) { scene.remove(marks); marks.traverse((o) => { if (o.geometry) o.geometry.dispose(); }); marks = null; }
+      if (!opts) { setTags([]); return; }
+      const fmt = opts.fmt || ((cm) => Math.round(cm * 10) / 10 + " cm");
+      const what = opts.what || "Rack";
+      const at = (x, y, z) => new THREE.Vector3(x - rack.l / 2, z - rack.h / 2, y - rack.w / 2);
+      const out = Math.max(rack.l, rack.w, rack.h) * 0.05;
+      // Just outside and below the two near bottom edges, and beside the
+      // upright at the left, so they stay clear of the boxes and each other.
+      const list = [
+        { at: at(rack.l / 2, rack.w + out, -out), text: what + " length " + fmt(rack.l), cls: "v3d-rack" },
+        { at: at(rack.l + out, rack.w / 2, -out), text: what + " width " + fmt(rack.w), cls: "v3d-rack" },
+        { at: at(-out, rack.w, rack.h / 2), text: what + " height " + fmt(rack.h), cls: "v3d-rack" },
+      ];
+
+      if (opts.dims) {
+        // Each kind gets a corner of its own -- near right, near left, far
+        // right, far left -- and its highest box there, so the tags of two
+        // kinds do not land on top of each other.
+        const CORNERS = [[1, 1], [0, 1], [1, 0], [0, 0]];
+        const kinds = [];
+        for (const p of placements) {
+          const key = (opts.group ? opts.group(p) : "") + "|" + p.oi;
+          if (kinds.indexOf(key) < 0) kinds.push(key);
+        }
+        const pick = new Map();
+        for (const p of placements) {
+          const key = (opts.group ? opts.group(p) : "") + "|" + p.oi;
+          const k = kinds.indexOf(key);
+          if (k >= CORNERS.length) continue;
+          const c = CORNERS[k];
+          const reach = (c[0] ? p.x + p.l : -p.x) + (c[1] ? p.y + p.w : -p.y) + p.z + p.h;
+          const best = pick.get(key);
+          if (!best || reach > best.reach) pick.set(key, { p: p, reach: reach, c: c });
+        }
+        marks = new THREE.Group();
+        const lineMat = new THREE.LineBasicMaterial({ color: opts.dark ? 0xffffff : 0x111827 });
+        [...pick.values()].forEach(function (b) {
+          const p = b.p;
+          const own = opts.dims(p);
+          if (!own) return;
+          const sides = sidesOf([p.l, p.w, p.h], own);
+          const geo = new THREE.BoxGeometry(p.l, p.h, p.w);
+          const edges = new THREE.LineSegments(new THREE.EdgesGeometry(geo), lineMat);
+          geo.dispose();
+          edges.position.copy(at(p.x + p.l / 2, p.y + p.w / 2, p.z + p.h / 2));
+          marks.add(edges);
+          // The three edges that meet at the box's corner on its side, each
+          // tag pushed a little off its edge, away from the box, so the
+          // three do not sit on top of each other.
+          const d = Math.min(p.l, p.w, p.h) * 0.35;
+          const cx = b.c[0] ? p.x + p.l + d : p.x - d;
+          const cy = b.c[1] ? p.y + p.w + d : p.y - d;
+          const z1 = p.z + p.h;
+          const edge = [
+            [at(p.x + p.l / 2, cy, z1 + d), sides[0], p.l, "along the " + what.toLowerCase() + "'s length"],
+            [at(cx, p.y + p.w / 2, z1 + d), sides[1], p.w, "across the " + what.toLowerCase() + "'s width"],
+            [at(cx, cy, p.z + p.h / 2), sides[2], p.h, "upright"],
+          ];
+          for (const e of edge) {
+            list.push({ at: e[0], text: e[1] + " " + fmt(e[2]), cls: "v3d-side v3d-" + e[1],
+              title: "The box's " + ({ L: "length", W: "width", H: "height" }[e[1]] || "side") + " runs " + e[3] });
+          }
+        });
+        scene.add(marks);
+      }
+      setTags(list);
+    }
+
     // placements are in rack space: x along the length, y along the width,
     // z upward, each measured from the near bottom-left corner. A placement
     // carrying its own `color` is drawn in it; otherwise the colour says
-    // which way up the box stands.
-    function show(rack, placements, dark) {
+    // which way up the box stands. opts, for the labels: { what ("Rack" or
+    // "Shelf"), fmt(cm) -> text, dims(p) -> the box's own { l, w, h },
+    // group(p) -> which SKU it belongs to, dark }.
+    function show(rack, placements, dark, opts) {
       drawRack(rack, dark);
       clear(boxMesh);
       boxMesh = null;
+      label(rack, placements.slice(0, MAX_INSTANCES), opts ? Object.assign({ dark: dark }, opts) : null);
 
       const shown = Math.min(placements.length, MAX_INSTANCES);
       if (shown > 0) {
@@ -171,8 +292,10 @@ const View3D = (function () {
       return shown;
     }
 
-    function frame(rack) {
-      radius = Math.max(rack.l, rack.w, rack.h) * 1.9;
+    // Back to the starting view, far enough out for the whole rack; closer
+    // is a fraction of that (1 = the usual distance).
+    function frame(rack, closer) {
+      radius = Math.max(rack.l, rack.w, rack.h) * 1.9 * (closer || 1);
       theta = Math.PI * 0.25;
       phi = Math.PI * 0.32;
       pan.set(0, 0, 0);

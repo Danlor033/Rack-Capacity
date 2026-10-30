@@ -229,6 +229,15 @@ button { cursor: pointer; }
 
 .canvas-wrap { position: relative; min-height: 0; background: var(--bg); }
 .canvas-wrap canvas { display: block; width: 100%; height: 100%; touch-action: none; }
+/* Labels pinned to the 3D view: the rack's size, and L / W / H on one box of each kind. */
+.v3d-tags { position: absolute; inset: 0; overflow: hidden; pointer-events: none; }
+.v3d-tag { position: absolute; left: 0; top: 0; white-space: nowrap; font-size: 11px; font-weight: 600;
+  line-height: 1; padding: 3px 6px; border-radius: 999px; }
+.v3d-rack { color: var(--ink-soft); background: color-mix(in srgb, var(--bg) 80%, transparent); font-weight: 500; }
+.v3d-side { color: #fff; box-shadow: 0 1px 3px rgba(0, 0, 0, .35); }
+.v3d-L { background: #d6453d; }
+.v3d-W { background: #1f8f4e; }
+.v3d-H { background: #2f6fed; }
 
 .hint { margin: 0; padding: 7px 12px; font-size: 11.5px; color: var(--ink-soft); border-top: 1px solid var(--line); }
 

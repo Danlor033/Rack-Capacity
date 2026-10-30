@@ -307,11 +307,21 @@ const Dashboard = (function () {
     }
     const colorFor = (i) => (colors === SECTION_COLORS ? SECTION_COLORS[i % SECTION_COLORS.length] : colors[i]);
 
-    if (!state.view && View3D.available()) state.view = View3D.create(el.dCanvas);
+    if (!state.view && View3D.available()) {
+      state.view = View3D.create(el.dCanvas);
+      state.view.frame(Layout.SHELF, 0.75);
+    }
     if (state.view) {
       const placements = rec ? Allocate.placementsOn(rec, state.data.skus, state.alloc) : [];
       for (const p of placements) p.color = colorFor(p.section);
-      state.view.show(Layout.SHELF, placements, dark());
+      state.view.show(Layout.SHELF, placements, dark(), {
+        what: "Shelf",
+        dims: (p) => {
+          const s = state.data.skus[rec.sections[p.section].sku];
+          return { l: s.length, w: s.width, h: s.height };
+        },
+        group: (p) => p.section,
+      });
     }
 
     if (!rec) {

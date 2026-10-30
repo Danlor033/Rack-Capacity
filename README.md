@@ -152,6 +152,11 @@ how many boxes you have — how many racks that needs.
 - **3D** — the rack with every box in place, coloured by orientation. Drag to
   turn it, scroll to zoom, shift-drag to slide. The slider fills the rack from
   the bottom up, so you can watch it build.
+  Labels show the rack's length, width and height, and one outlined box of
+  each orientation has its own **L** (red), **W** (green) and **H** (blue) on
+  the edges they run along -- so a box lying on its side reads at a glance.
+  Each orientation is labelled at a different corner. The shelf window on
+  the Racks page does the same, per SKU.
 - **Plan** — the rack from above, cut through at the slider's height. This is
   the drawing to hand to somebody on the floor.
 

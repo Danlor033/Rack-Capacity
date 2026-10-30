@@ -52,6 +52,7 @@
     const rack = { l: toCm(el.rackL.value), w: toCm(el.rackW.value), h: toCm(el.rackH.value) };
     const box = { l: toCm(el.boxL.value), w: toCm(el.boxW.value), h: toCm(el.boxH.value) };
     state.rack = rack;
+    state.box = box;
 
     const bad = [rack.l, rack.w, rack.h, box.l, box.w, box.h].some((n) => !(n > 0));
     if (bad) {
@@ -151,7 +152,9 @@
       // A box counts as placed once its base is below the cut, so a layer
       // taller than the cut still shows instead of leaving the rack empty.
       const shown = atTop ? state.placements : state.placements.filter((p) => p.z < cut - 1e-6);
-      if (state.view3d) state.view3d.show(state.rack, shown, dark());
+      if (state.view3d) {
+        state.view3d.show(state.rack, shown, dark(), { what: "Rack", fmt: label, dims: () => state.box });
+      }
     } else {
       const h = atTop ? Math.max(0, state.rack.h - 0.01) : cut;
       el.cutLabel.textContent = "Cut at " + label(h);
