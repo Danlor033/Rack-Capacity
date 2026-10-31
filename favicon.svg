@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
+  <!-- The same mark as the top bar: blue over green, split on the diagonal. -->
+  <clipPath id="r"><rect width="32" height="32" rx="8"/></clipPath>
+  <g clip-path="url(#r)">
+    <path d="M0 0H32L0 32Z" fill="#2f6fed"/>
+    <path d="M32 32H0L32 0Z" fill="#17a673"/>
+    <path d="M-2 34L34 -2" stroke="#fff" stroke-width="2.6"/>
+  </g>
+</svg>

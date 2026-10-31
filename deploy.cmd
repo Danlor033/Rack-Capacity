@@ -10,5 +10,6 @@ copy /y index.html dist\ >nul
 copy /y style.css dist\ >nul
 copy /y _headers dist\ >nul
 copy /y *.js dist\ >nul
+copy /y *.svg dist\ >nul
 call npx.cmd wrangler pages deploy dist --project-name rack-planner-acce --branch main --commit-dirty=true
 endlocal
