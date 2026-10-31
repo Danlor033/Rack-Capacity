@@ -643,7 +643,7 @@ const Dashboard = (function () {
     const withCat = picked === ALL;
     // Narrow enough to fit the window without sideways scrolling: headings
     // and long names wrap, and SKU and Locations share what is left.
-    const widths = [36, 76].concat(withCat ? [96] : [], [0], COLUMNS.map((c) => c.w));
+    const widths = [36, 96].concat(withCat ? [96] : [], [0], COLUMNS.map((c) => c.w));
     const lead = ["#", "Tier"].concat(withCat ? ["Category"] : [], ["SKU"]);
     // Two heading rows: the groups, then the columns. A column starting a
     // group gets a line on its left, all the way down.
@@ -678,7 +678,7 @@ const Dashboard = (function () {
       }).join("");
       html += '<tr data-sku="' + r.index + '">' +
         '<td class="sub">' + (i + 1) + "</td>" +
-        '<td class="wrap">' + esc(s.tier) + "</td>" +
+        "<td>" + esc(s.tier) + "</td>" +
         (withCat ? '<td class="wrap"><i class="cat-dot" style="background:' + categoryColor(s.category) + '"></i>' + esc(s.category) + "</td>" : "") +
         '<td class="sku-name wrap"><span class="sku-wrap"><b>' + esc(s.sku) + "</b>" +
         '<button type="button" class="copy-btn" data-copy="' + esc(s.sku) + '" title="Copy SKU" aria-label="Copy ' + esc(s.sku) + '">' +
