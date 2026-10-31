@@ -270,28 +270,42 @@ Shigetsu, warehouse area Main Warehouse and start position 4KB. Each SKU's
 locations are added together; a SKU with nothing there gets 0.
 
 JSTERP only answers someone signed in to it (its login is encrypted and can
-ask for a captcha), so no server can read it on its own. Instead
-`jstsync.js` runs **inside a signed-in JSTERP tab**, started from a bookmark:
+ask for a captcha), so no server can read it on its own. Instead a small
+Chrome extension, [`extension/`](extension/), runs on **OLT-0285** using a
+Chrome sign-in, with no JSTERP tab open:
 
-1. On the Racks page, click **Set up** in the 4KB Qty line under the title
-   and drag the *Rack Planner 4KB sync* button to the bookmarks bar.
-2. Sign in to JSTERP and open Zone Inventory
-   (`https://asia.jsterp.com/Wms/Pack/PackItem` -- the page itself, not the
-   asia-web menu around it; the bookmark offers to go there).
-3. Click the bookmark. A box in the corner shows each run. Leave the tab
-   open -- best on a PC that is always on. One tab serves everybody.
+- `open-4kb-sync.vbs`, from the Startup folder, keeps a separate minimized
+  Chrome running (its own folder, `%LocalAppData%\RackPlannerSync`), and
+  reopens it within a minute if it is closed.
+- The extension in that Chrome wakes every 30 seconds, reads the list, writes
+  any 4KB Qty that changed into `rack_skus`, and leaves a note in `rack_sync`
+  (name `jsterp-4kb`).
+- Every Racks page shows that note under the title, live. It turns orange
+  after two minutes without one, and a red alert after ten or when a run
+  fails. Signed out of JSTERP: the extension also shows a Windows
+  notification on OLT-0285, and its toolbar button shows a red **!**.
 
-Every 30 seconds it reads the list, writes any 4KB Qty that changed into
-`rack_skus`, and leaves a note in `rack_sync` (name `jsterp-4kb`). Every
-Racks page shows that note under the title, live, and turns it orange when
-the last one is over two minutes old or the run failed (signed out of
-JSTERP, usually: sign in and click the bookmark again).
+An empty list from JSTERP counts as a failed run: 4KB Qty is left as it is
+rather than set to 0 for every SKU.
 
-The bookmark always loads `jstsync.js` from the online copy
-(rack-planner-acce.pages.dev): JSTERP is https and will not run a script
-from the office's plain-http address. The JSTERP filter ids (owner
-Shigetsu = LinkCoIds 12697134 / LinkWarehouseIds 3948, warehouse 3938) are
-at the top of `jstsync.js`.
+To set it up on a PC: run `open-4kb-sync.vbs`, and in the Chrome it opens go
+to `chrome://extensions`, turn on **Developer mode**, click **Load unpacked**
+and choose the `extension` folder. Sign in to JSTERP in that Chrome. Put a
+shortcut to the `.vbs` in the Startup folder. Chrome loads the extension from
+that folder, so moving it means loading it again.
+
+What it needs: the PC on, awake and signed in to Windows, with a live JSTERP
+sign-in.
+
+`jstsync.js` does the same job from a signed-in JSTERP tab, started from the
+bookmark in the **Set up** window, for when OLT-0285 is away. It loads from
+the online copy (rack-planner-acce.pages.dev), because JSTERP is https and
+will not run a script from the office's plain-http address.
+
+The JSTERP filter ids (owner Shigetsu = LinkCoIds 12697134 / LinkWarehouseIds
+3948, warehouse 3938) are at the top of `extension/background.js` and
+`jstsync.js`. `extension/rules.json` makes the extension's request look like
+it comes from JSTERP's own page.
 
 ## Sharing through Supabase
 
@@ -314,7 +328,9 @@ change if the app ever gains a login.
 | `layout.js` | The 4KB rows, columns, layers and labels, and the fill orders. |
 | `allocate.js` | How many of a SKU's boxes go on each shelf it was given. No DOM -- testable on its own. |
 | `excel.js` | The put-away export (SheetJS). Also an unused sheet reader, from when there was an Import page. |
-| `jstsync.js` | Not loaded by the app: run in a JSTERP tab from a bookmark, it copies the 4KB Qty from Zone Inventory every 30 seconds. |
+| `extension/` | Not loaded by the app: the Chrome extension that copies the 4KB Qty from Zone Inventory every 30 seconds. |
+| `open-4kb-sync.vbs` | Keeps the Chrome that runs that extension open. Started from the Startup folder. |
+| `jstsync.js` | Not loaded by the app: the same job from a JSTERP tab, started from a bookmark. |
 | `soldsheet.js` | Reads sold per day from the Google Sheet (column D, by the SKU in column A). |
 | `dashboard.js` | The racks page: map, shelf detail, SKU list by category, adding and removing SKUs, rules. |
 | `pages.js` | Switching between Racks and Calculator. |

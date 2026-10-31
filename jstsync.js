@@ -1,8 +1,9 @@
 // 4KB Qty from JSTERP, every 30 seconds.
 //
-// This file does not run in Rack Planner. It is loaded into a JSTERP tab by
-// the "Rack Planner 4KB sync" bookmark (see the set-up window on the Racks
-// page), because JSTERP only answers someone signed in to it. Once loaded it
+// The stand-in for extension/, for when the sync PC is away. This file does
+// not run in Rack Planner. It is loaded into a JSTERP tab by the "Rack
+// Planner 4KB sync" bookmark (see the set-up window on the Racks page),
+// because JSTERP only answers someone signed in to it. Once loaded it
 // reads Warehouse > Zone Inventory -- owner Shigetsu, Main Warehouse, start
 // position 4KB -- adds the quantities up per SKU, and writes any 4KB Qty that
 // changed into Rack Planner. Every open Rack Planner page then shows the new
@@ -81,6 +82,9 @@
       rows.push.apply(rows, json.Data);
       if (!json.DataPage || json.DataPage.IsLast || !json.Data.length) break;
     }
+    // Nobody runs 4KB down to nothing: an empty list is a fault at JSTERP, and
+    // taking it at its word would zero every SKU in Rack Planner.
+    if (!rows.length) throw new Error("JSTERP sent an empty stock list, so 4KB Qty was left as it is.");
     // Start position 4KB already narrows it; this keeps anything else out
     // should JSTERP ever read it as "from 4KB onwards".
     const qty = new Map();

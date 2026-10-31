@@ -6,7 +6,7 @@
 <title>Rack Planner</title>
 <!-- Tab icon: the top bar's mark, kept in the page so every copy has it. -->
 <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3CclipPath id='r'%3E%3Crect width='32' height='32' rx='8'/%3E%3C/clipPath%3E%3Cg clip-path='url%28%23r%29'%3E%3Cpath d='M0 0H32L0 32Z' fill='%232f6fed'/%3E%3Cpath d='M32 32H0L32 0Z' fill='%2317a673'/%3E%3Cpath d='M-2 34L34 -2' stroke='%23fff' stroke-width='2.6'/%3E%3C/g%3E%3C/svg%3E" />
-<link rel="stylesheet" href="style.css?v=2026-10-31a" />
+<link rel="stylesheet" href="style.css?v=2026-10-31b" />
 </head>
 <body>
 
@@ -180,26 +180,28 @@
       </form>
     </dialog>
 
-    <!-- Starting the 4KB Qty feed in a JSTERP tab. -->
+    <!-- How the 4KB Qty feed runs, and what to do when it stops. -->
     <dialog class="ask jst-setup" id="jstDialog" aria-labelledby="jstTitle">
       <form method="dialog">
         <h3 id="jstTitle">4KB Qty from JSTERP, every 30 seconds</h3>
         <div class="ask-body">
-          <p>JSTERP only shows stock to someone signed in, so the numbers are read by a
-            JSTERP tab that stays open &mdash; best on a PC that is always on, like the office PC.
-            One tab is enough for everyone.</p>
+          <p>JSTERP only shows stock to someone signed in, so the numbers are read by a Chrome
+            extension on the sync PC, <b>OLT-0285</b>. It runs by itself in a separate, minimized
+            Chrome window and starts with Windows. No JSTERP tab is needed, and it serves everyone.</p>
+          <p><b>If this line turns red:</b></p>
           <ol>
-            <li>Drag this button to your browser&rsquo;s bookmarks bar (once):
-              <a class="jst-bookmark" id="jstLink" href="#">Rack Planner 4KB sync</a></li>
-            <li>Sign in to <a href="https://asia-web.jsterp.com/" target="_blank" rel="noopener">JSTERP</a>, then open
-              <a href="https://asia.jsterp.com/Wms/Pack/PackItem" target="_blank" rel="noopener">Zone Inventory</a>.</li>
-            <li>Click the bookmark. A small box appears in the corner of JSTERP and the
-              4KB Qty here updates every 30 seconds. Leave that tab open.</li>
+            <li>Check OLT-0285 is on, awake and signed in to Windows. The sync Chrome reopens within
+              a minute of being closed.</li>
+            <li>If it says signed out, open the minimized Chrome window on OLT-0285 (the one with the
+              Rack Planner button) and sign in to JSTERP there. The next run, within 30 seconds, picks it up.</li>
           </ol>
           <p class="sub">It reads Zone Inventory with owner Shigetsu, Main Warehouse, start position
-            4KB, and adds each SKU&rsquo;s locations together. A SKU with nothing there gets 0.
-            If JSTERP signs you out, the line under the title here turns orange &mdash; sign in
-            and click the bookmark again.</p>
+            4KB, and adds each SKU&rsquo;s locations together. A SKU with nothing there gets 0.</p>
+          <p class="sub">While OLT-0285 is away, any signed-in JSTERP tab can stand in: drag this to
+            your bookmarks bar, open
+            <a href="https://asia.jsterp.com/Wms/Pack/PackItem" target="_blank" rel="noopener">Zone Inventory</a>,
+            click it and leave the tab open.
+            <a class="jst-bookmark" id="jstLink" href="#">Rack Planner 4KB sync</a></p>
         </div>
         <div class="row-btns">
           <button class="primary" value="ok" type="submit">Close</button>
@@ -339,18 +341,18 @@
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-<script src="config.js?v=2026-10-31a"></script>
-<script src="packer.js?v=2026-10-31a"></script>
-<script src="layout.js?v=2026-10-31a"></script>
-<script src="allocate.js?v=2026-10-31a"></script>
+<script src="config.js?v=2026-10-31b"></script>
+<script src="packer.js?v=2026-10-31b"></script>
+<script src="layout.js?v=2026-10-31b"></script>
+<script src="allocate.js?v=2026-10-31b"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
-<script src="db.js?v=2026-10-31a"></script>
-<script src="excel.js?v=2026-10-31a"></script>
-<script src="view3d.js?v=2026-10-31a"></script>
-<script src="view2d.js?v=2026-10-31a"></script>
-<script src="app.js?v=2026-10-31a"></script>
-<script src="soldsheet.js?v=2026-10-31a"></script>
-<script src="dashboard.js?v=2026-10-31a"></script>
-<script src="pages.js?v=2026-10-31a"></script>
+<script src="db.js?v=2026-10-31b"></script>
+<script src="excel.js?v=2026-10-31b"></script>
+<script src="view3d.js?v=2026-10-31b"></script>
+<script src="view2d.js?v=2026-10-31b"></script>
+<script src="app.js?v=2026-10-31b"></script>
+<script src="soldsheet.js?v=2026-10-31b"></script>
+<script src="dashboard.js?v=2026-10-31b"></script>
+<script src="pages.js?v=2026-10-31b"></script>
 </body>
 </html>

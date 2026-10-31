@@ -1,0 +1,22 @@
+{
+  "manifest_version": 3,
+  "name": "Rack Planner 4KB sync",
+  "version": "1.0.0",
+  "description": "Copies the 4KB Qty from JSTERP Zone Inventory into Rack Planner every 30 seconds, with no JSTERP tab open.",
+  "minimum_chrome_version": "120",
+  "permissions": ["alarms", "storage", "notifications", "declarativeNetRequestWithHostAccess"],
+  "host_permissions": [
+    "https://asia.jsterp.com/*",
+    "https://zvzeojcdjafzqunzladl.supabase.co/*"
+  ],
+  "background": { "service_worker": "background.js" },
+  "declarative_net_request": {
+    "rule_resources": [{ "id": "jsterp", "enabled": true, "path": "rules.json" }]
+  },
+  "action": {
+    "default_title": "Rack Planner 4KB sync",
+    "default_popup": "popup.html",
+    "default_icon": { "16": "icon16.png", "48": "icon48.png", "128": "icon128.png" }
+  },
+  "icons": { "16": "icon16.png", "48": "icon48.png", "128": "icon128.png" }
+}

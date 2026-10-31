@@ -1316,11 +1316,13 @@ const Dashboard = (function () {
   // --- 4KB Qty from JSTERP --------------------------------------------------------
 
   // The numbers themselves arrive as SKU changes (see below); this only says
-  // how fresh they are. jstsync.js, running in a signed-in JSTERP tab, writes
-  // them every 30 seconds and leaves a note in rack_sync each time. Two
-  // minutes without one and the feed is taken to have stopped.
+  // how fresh they are. The Chrome extension on the sync PC writes them every
+  // 30 seconds and leaves a note in rack_sync each time. Two minutes without
+  // one and the feed is taken to have stopped; ten, or a failed run, and the
+  // line becomes a red alert.
   const STOCK_FEED = "jsterp-4kb";
   const STOCK_STALE = 2 * 60 * 1000;
+  const STOCK_DOWN = 10 * 60 * 1000;
   let stockNote = null;
 
   function ago(ms) {
@@ -1337,16 +1339,16 @@ const Dashboard = (function () {
     const n = stockNote;
     if (!n || !n.synced_at) {
       el.stockSync.innerHTML = "4KB Qty is not coming from JSTERP yet." + setup;
-      el.stockSync.classList.add("bad-text");
+      el.stockSync.classList.add("bad-text", "stock-down");
       return;
     }
     const age = Date.now() - new Date(n.synced_at).getTime();
     const info = n.info || {};
     let text;
     if (!n.ok) {
-      text = "4KB Qty from JSTERP stopped " + ago(age) + " (" + esc(n.message || "unknown") + ")." + setup;
+      text = "4KB Qty is not updating: " + esc(n.message || "unknown") + setup;
     } else if (age > STOCK_STALE) {
-      text = "4KB Qty from JSTERP last updated " + ago(age) + " \u2014 the JSTERP sync tab is closed or asleep." + setup;
+      text = "4KB Qty last updated " + ago(age) + " \u2014 the sync PC is off or asleep, or its Chrome is closed." + setup;
     } else {
       text = "4KB Qty live from JSTERP \u00b7 updated " + ago(age) +
         (info.skus !== undefined ? " \u00b7 " + fmt(info.skus) + " SKUs in 4KB" : "") +
@@ -1354,6 +1356,7 @@ const Dashboard = (function () {
     }
     el.stockSync.innerHTML = text;
     el.stockSync.classList.toggle("bad-text", !n.ok || age > STOCK_STALE);
+    el.stockSync.classList.toggle("stock-down", !n.ok || age > STOCK_DOWN);
   }
 
   async function loadStockNote() {
@@ -1371,9 +1374,9 @@ const Dashboard = (function () {
     setInterval(renderStockSync, 10 * 1000);
   }
 
-  // The bookmark that starts the feed in a JSTERP tab. It always loads the
-  // online copy of jstsync.js: JSTERP is https and will not run a script
-  // from the office's plain-http address.
+  // The bookmark, for running the feed from a JSTERP tab while the sync PC is
+  // away. It always loads the online copy of jstsync.js: JSTERP is https and
+  // will not run a script from the office's plain-http address.
   const JST_SCRIPT = "https://rack-planner-acce.pages.dev/jstsync.js";
   el.jstLink.href = "javascript:(function(){var s=document.createElement('script');s.src='" +
     JST_SCRIPT + "?t='+Date.now();document.head.appendChild(s);})();";

@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>Rack Planner 4KB sync</title>
+<style>
+  body { width: 280px; margin: 0; padding: 14px; font: 13px/1.45 system-ui, sans-serif; color: #1d2433; background: #fff; }
+  h1 { display: flex; align-items: center; gap: 8px; margin: 0; font-size: 13px; }
+  #dot { width: 9px; height: 9px; border-radius: 50%; background: #e0a100; flex: none; }
+  #dot.ok { background: #2e9d5b; }
+  #dot.bad { background: #d64545; }
+  #text { margin: 8px 0 2px; color: #5a6478; overflow-wrap: anywhere; }
+  #when { margin: 0 0 10px; color: #8a93a5; font-size: 12px; }
+  .acts { display: flex; gap: 8px; align-items: center; }
+  button { font: inherit; padding: 4px 10px; border: 1px solid #d5dbe5; border-radius: 6px; background: #fff; cursor: pointer; }
+  button:disabled { opacity: .6; cursor: default; }
+  a { color: #2f6fed; }
+</style>
+</head>
+<body>
+  <h1><span id="dot"></span>Rack Planner 4KB sync</h1>
+  <p id="text">Starting&hellip;</p>
+  <p id="when"></p>
+  <div class="acts">
+    <button id="now" type="button">Sync now</button>
+    <a href="https://asia-web.jsterp.com/" target="_blank" rel="noopener">Sign in to JSTERP</a>
+  </div>
+  <script src="popup.js"></script>
+</body>
+</html>

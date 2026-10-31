@@ -1,0 +1,17 @@
+[
+  {
+    "id": 1,
+    "priority": 1,
+    "action": {
+      "type": "modifyHeaders",
+      "requestHeaders": [
+        { "header": "origin", "operation": "set", "value": "https://asia.jsterp.com" },
+        { "header": "referer", "operation": "set", "value": "https://asia.jsterp.com/Wms/Pack/PackItem" }
+      ]
+    },
+    "condition": {
+      "urlFilter": "||asia.jsterp.com/wms/Pack/GetPackItemsPages",
+      "resourceTypes": ["xmlhttprequest"]
+    }
+  }
+]
