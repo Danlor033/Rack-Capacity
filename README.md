@@ -271,36 +271,33 @@ locations are added together; a SKU with nothing there gets 0.
 
 JSTERP only answers someone signed in to it (its login is encrypted and can
 ask for a captcha), so no server can read it on its own. Instead a small
-Chrome extension, [`extension/`](extension/), runs on **OLT-0285** using a
-Chrome sign-in, with no JSTERP tab open:
+Chrome extension, [`extension/`](extension/), does it in an ordinary Chrome,
+using that Chrome's JSTERP sign-in, with no JSTERP tab open:
 
-- `open-4kb-sync.vbs`, from the Startup folder, keeps a separate minimized
-  Chrome running (its own folder, `%LocalAppData%\RackPlannerSync`), and
-  reopens it within a minute if it is closed.
-- The extension in that Chrome wakes every 30 seconds, reads the list, writes
-  any 4KB Qty that changed into `rack_skus`, and leaves a note in `rack_sync`
-  (name `jsterp-4kb`).
+- While that Chrome is open the extension wakes every 30 seconds, reads the
+  list, writes any 4KB Qty that changed into `rack_skus`, and leaves a note in
+  `rack_sync` (name `jsterp-4kb`).
+- Any number of Chromes can have it, and any one of them open and signed in
+  keeps the numbers right for everybody. A signed-out one stays quiet while
+  another is still syncing.
 - Every Racks page shows that note under the title, live. It turns orange
   after two minutes without one, and a red alert after ten or when a run
-  fails. Signed out of JSTERP: the extension also shows a Windows
-  notification on OLT-0285, and its toolbar button shows a red **!**.
+  fails. Signed out of JSTERP: the extension also shows a notification on that
+  PC, and its toolbar button shows a red **!**.
 
 An empty list from JSTERP counts as a failed run: 4KB Qty is left as it is
 rather than set to 0 for every SKU.
 
-To set it up on a PC: run `open-4kb-sync.vbs`, and in the Chrome it opens go
-to `chrome://extensions`, turn on **Developer mode**, click **Load unpacked**
-and choose the `extension` folder. Sign in to JSTERP in that Chrome. Put a
-shortcut to the `.vbs` in the Startup folder. Chrome loads the extension from
-that folder, so moving it means loading it again.
-
-What it needs: the PC on, awake and signed in to Windows, with a live JSTERP
-sign-in.
+To add it to a Chrome: go to `chrome://extensions`, turn on **Developer
+mode**, click **Load unpacked** and choose the `extension` folder (copy it to
+that PC first). Sign in to JSTERP in that Chrome. Chrome loads the extension
+from that folder, so moving it means loading it again, and a change to its
+files takes effect when Chrome restarts or you click reload on that page.
 
 `jstsync.js` does the same job from a signed-in JSTERP tab, started from the
-bookmark in the **Set up** window, for when OLT-0285 is away. It loads from
-the online copy (rack-planner-acce.pages.dev), because JSTERP is https and
-will not run a script from the office's plain-http address.
+bookmark in the **Set up** window, for a browser without the extension. It
+loads from the online copy (rack-planner-acce.pages.dev), because JSTERP is
+https and will not run a script from the office's plain-http address.
 
 The JSTERP filter ids (owner Shigetsu = LinkCoIds 12697134 / LinkWarehouseIds
 3948, warehouse 3938) are at the top of `extension/background.js` and
@@ -329,7 +326,6 @@ change if the app ever gains a login.
 | `allocate.js` | How many of a SKU's boxes go on each shelf it was given. No DOM -- testable on its own. |
 | `excel.js` | The put-away export (SheetJS). Also an unused sheet reader, from when there was an Import page. |
 | `extension/` | Not loaded by the app: the Chrome extension that copies the 4KB Qty from Zone Inventory every 30 seconds. |
-| `open-4kb-sync.vbs` | Keeps the Chrome that runs that extension open. Started from the Startup folder. |
 | `jstsync.js` | Not loaded by the app: the same job from a JSTERP tab, started from a bookmark. |
 | `soldsheet.js` | Reads sold per day from the Google Sheet (column D, by the SKU in column A). |
 | `dashboard.js` | The racks page: map, shelf detail, SKU list by category, adding and removing SKUs, rules. |

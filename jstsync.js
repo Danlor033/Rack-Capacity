@@ -1,6 +1,6 @@
 // 4KB Qty from JSTERP, every 30 seconds.
 //
-// The stand-in for extension/, for when the sync PC is away. This file does
+// The stand-in for extension/, for a browser without it. This file does
 // not run in Rack Planner. It is loaded into a JSTERP tab by the "Rack
 // Planner 4KB sync" bookmark (see the set-up window on the Racks page),
 // because JSTERP only answers someone signed in to it. Once loaded it

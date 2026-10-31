@@ -1,7 +1,8 @@
 // 4KB Qty from JSTERP, every 30 seconds, with no tab open.
 //
 // This runs in Chrome itself, using the JSTERP sign-in of the Chrome it is
-// installed in. It reads Warehouse > Zone Inventory -- owner Shigetsu, Main
+// installed in, for as long as that Chrome is open. Any number of Chromes can
+// have it: each writes only what changed. It reads Warehouse > Zone Inventory -- owner Shigetsu, Main
 // Warehouse, start position 4KB -- adds the quantities up per SKU, and writes
 // any 4KB Qty that changed into Rack Planner. It is jstsync.js without the
 // page: same filter, same note in rack_sync.
@@ -14,6 +15,7 @@ const STOCK_URL = "https://asia.jsterp.com/wms/Pack/GetPackItemsPages";
 const SIGN_IN_URL = "https://asia-web.jsterp.com/";
 const ALARM = "sync";
 const EVERY_MINUTES = 0.5;
+const STALE = 2 * 60 * 1000;
 
 // The Zone Inventory filters, as JSTERP sends them: owner Shigetsu
 // (LinkCoIds / LinkWarehouseIds), warehouse area Main, start position 4KB,
@@ -42,7 +44,7 @@ async function readStock() {
     let json = null;
     try { json = JSON.parse(text); } catch (e) { /* the sign-in page, not data */ }
     if (!res.ok || !json || !Array.isArray(json.Data)) {
-      throw new SignedOut("JSTERP did not send the stock list -- signed out? Sign in to JSTERP in the sync Chrome.");
+      throw new SignedOut("JSTERP did not send the stock list -- signed out? Sign in to JSTERP in Chrome.");
     }
     rows.push.apply(rows, json.Data);
     if (!json.DataPage || json.DataPage.IsLast || !json.Data.length) break;
@@ -96,6 +98,14 @@ function report(ok, message, info) {
     prefer: "resolution=merge-duplicates,return=minimal",
     body: { name: SYNC_NAME, synced_at: new Date().toISOString(), ok: ok, message: message, info: info || {} },
   });
+}
+
+// True while the last note is a good one, from this Chrome or another. One
+// Chrome signed out should not raise the alarm over one that is still syncing.
+async function stillFresh() {
+  const notes = await sb("rack_sync?select=ok,synced_at&name=eq." + SYNC_NAME);
+  const n = notes && notes[0];
+  return !!n && n.ok && Date.now() - new Date(n.synced_at).getTime() < STALE;
 }
 
 // --- what the toolbar button shows ---------------------------------------------
@@ -160,7 +170,9 @@ async function round() {
     console.error(e);
     await show(false, e.message);
     if (e instanceof SignedOut) await warnSignedOut(e.message);
-    await report(false, e.message).catch(function () { /* Rack Planner unreachable too */ });
+    try {
+      if (!(await stillFresh())) await report(false, e.message);
+    } catch (err) { /* Rack Planner unreachable too */ }
   } finally {
     busy = false;
   }
