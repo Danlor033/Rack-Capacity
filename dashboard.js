@@ -202,27 +202,32 @@ const Dashboard = (function () {
   // pick: the result index a shelf is being picked for, when drawing the
   // picker; its own shelves are marked, and search and selection are left
   // out.
-  // How many boxes of SKU `index` still fit in the room left on a shelf.
-  // A SKU with no box size cannot be fitted anywhere already in use.
-  function roomFor(rec, index) {
+  // How many boxes of SKU `index` still fit in the room left on a shelf,
+  // or on it empty. A SKU with no box size cannot be fitted anywhere.
+  function roomFor(label, index) {
     const s = state.data.skus[index];
-    if (!rec) return Infinity;
+    const rec = state.alloc.locations.get(label);
+    if (!rec) return state.alloc.results[index].perLayer[layerOf(label)] || 0;
     if (!Allocate.hasSize(s) || rec.free < 1) return 0;
-    return state.alloc.packIn(Math.floor(rec.free + 1e-6), { l: s.length, w: s.width, h: s.height }).count;
+    return state.alloc.packIn(Math.floor(rec.free + 1e-6), { l: s.length, w: s.width, h: s.height }, rec.shelf.h).count;
+  }
+
+  function layerOf(label) {
+    return Number(label.split("-")[3]);
   }
 
   function cellHtml(row, col, layer, pick) {
     const label = Layout.label(row, col, layer);
     const rec = state.alloc.locations.get(label);
-    const shelf = Layout.SHELF;
+    const shelf = Layout.shelfOf(layer);
     const cls = ["cell"];
     if (!rec) cls.push("free");
     if (pick === undefined) {
       if (state.selected === label) cls.push("selected");
       if (state.search) cls.push(matches(rec, label) ? "hit" : "dim");
     } else {
-      cls.push("pick", !rec ? "vacant" : rec.sections.some((sec) => sec.sku === pick) ? "mine"
-        : roomFor(rec, pick) > 0 ? "taken" : "full");
+      cls.push("pick", rec && rec.sections.some((sec) => sec.sku === pick) ? "mine"
+        : roomFor(label, pick) <= 0 ? "full" : !rec ? "vacant" : "taken");
     }
 
     let inner = "";
@@ -239,7 +244,7 @@ const Dashboard = (function () {
       }
       if (rec.sections.length > 1) inner += '<b class="n">' + rec.sections.length + "</b>";
     }
-    if (pick !== undefined && cls.indexOf("full") >= 0) tip += "\nNo room left for this SKU";
+    if (pick !== undefined && cls.indexOf("full") >= 0) tip += rec ? "\nNo room left for this SKU" : "\nThis SKU's box is too tall for this layer";
     // An occupied shelf is tinted its colour all over, so a shelf with a
     // single box still reads as its category; the bar shows how full it is.
     const tint = rec ? ' style="background:color-mix(in srgb, ' + colorOf(rec.sections[0].sku) + ' 30%, transparent)"' : "";
@@ -296,7 +301,8 @@ const Dashboard = (function () {
     el.dLabel.textContent = label;
     const stat = (name, value) => "<div><dt>" + name + "</dt><dd>" + value + "</dd></div>";
     el.dWhere.innerHTML = stat("Row", row) + stat("Column", col) +
-      stat("Layer", layer + ' <span class="sub">' + (layer === 1 ? "floor" : layer === Layout.LAYERS ? "top" : "middle") + "</span>") +
+      stat("Layer", layer + ' <span class="sub">' + (layer === 1 ? "floor" : layer === Layout.LAYERS ? "top" : "middle") +
+        " \u00b7 " + Layout.shelfOf(layer).h + " cm tall</span>") +
       stat("Full", rec ? pct(rec.fill) : "0%");
 
     // The map's colours, unless two SKUs here would share one.
@@ -307,14 +313,17 @@ const Dashboard = (function () {
     }
     const colorFor = (i) => (colors === SECTION_COLORS ? SECTION_COLORS[i % SECTION_COLORS.length] : colors[i]);
 
-    if (!state.view && View3D.available()) {
-      state.view = View3D.create(el.dCanvas);
-      state.view.frame(Layout.SHELF, 0.75);
+    const shelf = Layout.shelfOf(layer);
+    if (!state.view && View3D.available()) state.view = View3D.create(el.dCanvas);
+    // Back out far enough for the shelf when its height changes.
+    if (state.view && state.viewH !== shelf.h) {
+      state.view.frame(shelf, 0.75);
+      state.viewH = shelf.h;
     }
     if (state.view) {
       const placements = rec ? Allocate.placementsOn(rec, state.data.skus, state.alloc) : [];
       for (const p of placements) p.color = colorFor(p.section);
-      state.view.show(Layout.SHELF, placements, dark(), {
+      state.view.show(shelf, placements, dark(), {
         what: "Shelf",
         dims: (p) => {
           const s = state.data.skus[rec.sections[p.section].sku];
@@ -350,8 +359,8 @@ const Dashboard = (function () {
         fact("Box size (L × W × H)", [s.length, s.width, s.height].join(" × ") + " cm", true) +
         "</dl></article>";
     });
-    const free = Layout.SHELF.l - rec.sections.reduce((n, s) => n + s.len, 0);
-    if (free > 0.5 && rec.sections.length && rec.sections[0].len < Layout.SHELF.l) {
+    const free = shelf.l - rec.sections.reduce((n, s) => n + s.len, 0);
+    if (free > 0.5 && rec.sections.length && rec.sections[0].len < shelf.l) {
       html += '<p class="sub detail-free">' + Math.round(free) + " cm of shelf width still free</p>";
     }
     el.dTable.innerHTML = html;
@@ -379,8 +388,8 @@ const Dashboard = (function () {
     { group: "4KB stock vs sales", head: "Needed", w: 66, worked: "needed", title: "Sold per day \u00d7 days of stock" },
     { group: "Boxes", head: "Qty/Box", w: 62, edit: "qtyPerBox" },
     { group: "Boxes", head: "Boxes", w: 54, worked: "boxes", title: "4KB Qty \u00f7 Qty/Box, rounded up" },
-    { group: "Boxes", head: "Per Shelf", w: 54, worked: "perShelf", title: "Boxes that fit on one empty shelf" },
-    { group: "Boxes", head: "Shelf Needed", w: 58, worked: "shelvesNeeded", title: "Boxes \u00f7 Per Shelf, rounded up" },
+    { group: "Boxes", head: "Per Shelf", w: 54, worked: "perShelf", title: "Boxes that fit on one empty Layer 1 or 2 shelf (85 cm); L3: on the taller Layer 3 (140 cm)" },
+    { group: "Boxes", head: "Shelf Needed", w: 58, worked: "shelvesNeeded", title: "Boxes \u00f7 Per Shelf, rounded up (Layer 1 and 2 shelves)" },
     { group: "On shelves", head: "Placed", w: 56, worked: "placed", title: "Boxes already on a shelf" },
     { group: "On shelves", head: "No shelf", w: 58, worked: "unplaced", title: "Boxes of the 4KB Qty not on a shelf yet" },
     { group: "Box size (cm)", head: "L", w: 48, edit: "length" },
@@ -442,7 +451,7 @@ const Dashboard = (function () {
         "</span>" +
         // A shelf that filled up before this SKU got any room on it, for
         // instance when the SKU before it was given its qty per box later.
-        (!p.boxes && r.counted && r.stock > 0 && r.perShelf
+        (!p.boxes && r.counted && r.stock > 0 && r.fits
           ? '<span class="loc-noroom" title="The shelf is full: none of this SKU\u2019s boxes fit. Delete this location.">no room</span>'
           : shared ? '<span class="loc-mixed" title="Shared with other SKUs">mixed</span>' : "") +
         '<span class="loc-acts"><button type="button" class="copy-btn" data-copy="' + p.label + '" title="Copy location" aria-label="Copy ' + p.label + '">' + COPY_ICON + "</button>" +
@@ -468,9 +477,17 @@ const Dashboard = (function () {
     if (!r.counted) return "Fill in Qty/Box first — the boxes cannot be counted without it.";
     if (r.stock <= 0) return "There is no stock in 4KB Qty.";
     if (!Allocate.hasSize(r.sku)) return "Fill in L, W and H first.";
-    if (!r.perShelf) return "The box is bigger than a shelf.";
+    if (!r.fits) return "The box is bigger than a shelf.";
     if (r.unplaced <= 0) return "Every box of the 4KB Qty already has a shelf — nothing left under No shelf.";
     return null;
+  }
+
+  // Layers 1 and 2, and under it the taller Layer 3 when that holds more.
+  function perShelfHtml(r) {
+    if (!r.fits) return "";
+    const low = r.perShelf ? fmt(r.perShelf) : '<span class="sub">\u2014</span>';
+    return r.perTop !== r.perShelf
+      ? low + '<span class="per-top" title="On a Layer 3 shelf (140 cm tall)">L3 ' + fmt(r.perTop) + "</span>" : low;
   }
 
   // 4KB stock against what sales need: + over quantity (green), - short
@@ -496,8 +513,11 @@ const Dashboard = (function () {
       case "remark": return remarkHtml(r);
       case "needed": return fmt(r.needed);
       case "boxes": return "<b>" + (r.problem === "no-count" ? "?" : fmt(r.stock)) + "</b>";
-      case "perShelf": return r.perShelf ? fmt(r.perShelf) : "";
-      case "shelvesNeeded": return r.perShelf && r.counted && r.stock > 0 ? fmt(Math.ceil(r.stock / r.perShelf)) : "";
+      case "perShelf": return perShelfHtml(r);
+      case "shelvesNeeded": {
+        const per = r.perShelf || r.perTop;
+        return per && r.counted && r.stock > 0 ? fmt(Math.ceil(r.stock / per)) : "";
+      }
       case "placed": return fmt(r.placed);
       case "unplaced": return r.unplaced ? '<span class="pending">' + fmt(r.unplaced) + "</span>" : "";
       case "locations": return locationsHtml(r);
@@ -839,7 +859,10 @@ const Dashboard = (function () {
     const facts = [catName(r.sku.category)];
     if (r.counted && r.stock > 0) facts.push(fmt(r.unplaced) + " of " + fmt(r.stock) + (r.stock === 1 ? " box" : " boxes") +
       " (" + fmt(r.qtyLeft) + " qty) still to place");
-    if (r.perShelf) facts.push(fmt(r.perShelf) + " fit on a shelf");
+    if (r.fits) {
+      facts.push(r.perTop === r.perShelf ? fmt(r.perShelf) + " fit on a shelf"
+        : fmt(r.perShelf) + " fit on a Layer 1\u20132 shelf, " + fmt(r.perTop) + " on Layer 3");
+    }
     facts.push(r.spots.length ? "on " + r.spots.map((p) => p.label).join(", ") : "no shelf yet");
     facts.push(vacant + " shelves vacant");
     el.pickSub.textContent = facts.join(" · ");
@@ -877,8 +900,10 @@ const Dashboard = (function () {
     const r = state.alloc.results[index];
     const why = whyNoLocation(r);
     if (why) { pickNote(why); return; }
-    if (roomFor(state.alloc.locations.get(label), index) <= 0) {
-      pickNote(label + " is full \u2014 there is no room left on it for this SKU. Pick another shelf.");
+    if (roomFor(label, index) <= 0) {
+      pickNote(state.alloc.locations.has(label)
+        ? label + " is full \u2014 there is no room left on it for this SKU. Pick another shelf."
+        : r.sku.sku + "'s box is too tall for Layer " + layerOf(label) + ". Pick another shelf.");
       return;
     }
     if (!r.sku.id) {
@@ -889,7 +914,7 @@ const Dashboard = (function () {
     // How much may go: what is still without a shelf, and what fits here.
     const rec = state.alloc.locations.get(label);
     const perBox = r.sku.qtyPerBox;
-    const roomBoxes = rec ? roomFor(rec, index) : r.perShelf;
+    const roomBoxes = roomFor(label, index);
     const max = Math.max(0, Math.min(r.qtyLeft, Math.min(roomBoxes, r.unplaced) * perBox));
     if (max < 1) {
       pickNote("Nothing of " + r.sku.sku + " is left to move.");
@@ -937,7 +962,7 @@ const Dashboard = (function () {
     const perBox = r.sku.qtyPerBox;
     if (!spot || !(perBox > 0)) return;
     const rec = state.alloc.locations.get(label);
-    const roomBoxes = spot.boxes + (rec ? roomFor(rec, index) : 0);
+    const roomBoxes = spot.boxes + (rec ? roomFor(label, index) : 0);
     const max = Math.max(1, Math.min(spot.qty + r.qtyLeft, roomBoxes * perBox));
     const qty = await ask({
       title: "Change the qty on " + label,

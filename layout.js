@@ -2,14 +2,21 @@
 // order to fill them in.
 //
 // Every row is a line of rack columns; every column has three shelves
-// ("layers") stacked up from the floor. Each shelf is the same opening, so
-// one size describes all 231 of them.
+// ("layers") stacked up from the floor. Every shelf is the same length and
+// depth; Layer 3, the top, is taller than the two below it.
 const Layout = (function () {
   "use strict";
 
   const PREFIX = "4KB";
   const SHELF = { l: 240, w: 120, h: 85 };
   const LAYERS = 3;
+  // Layers whose height is not SHELF.h.
+  const HEIGHTS = { 3: 140 };
+
+  // The opening of a shelf on `layer`.
+  function shelfOf(layer) {
+    return HEIGHTS[layer] ? { l: SHELF.l, w: SHELF.w, h: HEIGHTS[layer] } : SHELF;
+  }
 
   // Columns in each row, Row 1 first.
   const ROWS = [14, 9, 9, 9, 9, 9, 9, 9];
@@ -49,6 +56,7 @@ const Layout = (function () {
     PREFIX: PREFIX,
     SHELF: SHELF,
     LAYERS: LAYERS,
+    shelfOf: shelfOf,
     ROWS: ROWS,
     label: label,
     all: () => ALL.slice(),

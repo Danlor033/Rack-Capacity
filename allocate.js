@@ -97,15 +97,19 @@ const Allocate = (function () {
   function place(skus, shelves, rulesIn) {
     const rules = Object.assign({}, DEFAULT_RULES, rulesIn || {});
     const shelf = Layout.SHELF;
+    const layers = [];
+    for (let n = 1; n <= Layout.LAYERS; n++) layers.push(n);
     const days = num(rules.days) > 0 ? rules.days : DEFAULT_RULES.days;
     rules.days = days;
 
     const cache = new Map();
-    function packIn(length, box) {
-      const key = length.toFixed(3) + "|" + box.l + "|" + box.w + "|" + box.h;
+    // `height`: the shelf's, which depends on its layer.
+    function packIn(length, box, height) {
+      const h = height || shelf.h;
+      const key = length.toFixed(3) + "|" + h + "|" + box.l + "|" + box.w + "|" + box.h;
       let hit = cache.get(key);
       if (!hit) {
-        hit = Packer.pack({ l: length, w: shelf.w, h: shelf.h }, box, rules.turn);
+        hit = Packer.pack({ l: length, w: shelf.w, h: h }, box, rules.turn);
         cache.set(key, hit);
       }
       return hit;
@@ -120,7 +124,7 @@ const Allocate = (function () {
         wanted: wanted === null ? 0 : wanted, stock: stock === null ? 0 : stock,
         counted: stock !== null && wanted !== null, placed: 0, unplaced: 0,
         placedQty: 0, qtyLeft: Math.max(0, num(s.quantity)),
-        perShelf: 0, spots: [], problem: null,
+        perShelf: 0, perTop: 0, perLayer: {}, fits: false, spots: [], problem: null,
       };
     });
     function extent(result) {
@@ -130,18 +134,27 @@ const Allocate = (function () {
     }
 
     // The narrowest slice of shelf that still holds `count` boxes.
-    function slice(count, box) {
+    function slice(count, box, height) {
       let lo = 1, hi = Math.ceil(shelf.l);
       while (lo < hi) {
         const mid = (lo + hi) >> 1;
-        if (packIn(mid, box).count >= count) hi = mid; else lo = mid + 1;
+        if (packIn(mid, box, height).count >= count) hi = mid; else lo = mid + 1;
       }
-      return { packLen: lo, len: Math.min(lo, extent(packIn(lo, box))) };
+      return { packLen: lo, len: Math.min(lo, extent(packIn(lo, box, height))) };
     }
 
     const byId = new Map(results.map((r) => [String(r.sku.id), r]));
     const left = new Map(results.map((r) => [r, r.counted ? r.stock : 0]));
-    for (const r of results) r.perShelf = hasSize(r.sku) ? packIn(shelf.l, boxOf(r.sku)).count : 0;
+    // Boxes on one empty shelf of each layer. perShelf is the usual shelf
+    // (Layers 1 and 2), perTop the taller Layer 3.
+    for (const r of results) {
+      for (const n of layers) {
+        r.perLayer[n] = hasSize(r.sku) ? packIn(shelf.l, boxOf(r.sku), Layout.shelfOf(n).h).count : 0;
+      }
+      r.perShelf = r.perLayer[1];
+      r.perTop = r.perLayer[Layout.LAYERS];
+      r.fits = layers.some((n) => r.perLayer[n] > 0);
+    }
 
     const locations = new Map();
     const seen = new Set();
@@ -153,7 +166,7 @@ const Allocate = (function () {
       let rec = locations.get(a.label);
       if (!rec) {
         rec = {
-          label: a.label, row: spot.row, col: spot.col, layer: spot.layer,
+          label: a.label, row: spot.row, col: spot.col, layer: spot.layer, shelf: Layout.shelfOf(spot.layer),
           sections: [], free: shelf.l, category: text(r.sku.category).toLowerCase(),
         };
         locations.set(a.label, rec);
@@ -165,10 +178,10 @@ const Allocate = (function () {
       const perBox = num(s.qtyPerBox);
       const asked = num(a.qty) > 0 ? num(a.qty) : null;
       let boxes = 0, cut = { len: 0, packLen: 0 };
-      if (left.get(r) > 0 && r.perShelf && rec.free > 1) {
+      if (left.get(r) > 0 && r.perLayer[spot.layer] && rec.free > 1) {
         const want = asked !== null && perBox > 0 ? Math.ceil(asked / perBox - EPS) : Infinity;
-        boxes = Math.min(left.get(r), want, packIn(Math.floor(rec.free + EPS), boxOf(s)).count);
-        if (boxes) cut = slice(boxes, boxOf(s));
+        boxes = Math.min(left.get(r), want, packIn(Math.floor(rec.free + EPS), boxOf(s), rec.shelf.h).count);
+        if (boxes) cut = slice(boxes, boxOf(s), rec.shelf.h);
       }
       const qty = perBox > 0 ? Math.min(asked !== null ? asked : Infinity, boxes * perBox, r.qtyLeft) : 0;
       r.qtyLeft -= qty;
@@ -187,12 +200,13 @@ const Allocate = (function () {
       if (!r.counted) r.problem = "no-count";
       else if (r.stock <= 0) r.problem = "no-stock";
       else if (!hasSize(s)) r.problem = "no-size";
-      else if (!r.perShelf) r.problem = "too-big";
+      else if (!r.fits) r.problem = "too-big";
       else if (remaining > 0) r.problem = r.spots.length ? "short" : "no-location";
     }
 
     // Totals.
-    const shelfVolume = shelf.l * shelf.w * shelf.h;
+    const volumeOf = (sh) => sh.l * sh.w * sh.h;
+    const allVolume = Layout.all().reduce((n, spot) => n + volumeOf(Layout.shelfOf(spot.layer)), 0);
     let boxVolume = 0;
     for (const rec of locations.values()) {
       let v = 0;
@@ -201,7 +215,7 @@ const Allocate = (function () {
         if (sec.boxes && hasSize(s)) v += sec.boxes * s.length * s.width * s.height;
       }
       rec.volume = v;
-      rec.fill = v / shelfVolume;
+      rec.fill = v / volumeOf(rec.shelf);
       boxVolume += v;
     }
 
@@ -217,7 +231,7 @@ const Allocate = (function () {
       boxesStock: counted.reduce((n, r) => n + r.stock, 0),
       boxesPlaced: results.reduce((n, r) => n + r.placed, 0),
       boxesUnplaced: results.reduce((n, r) => n + r.unplaced, 0),
-      fill: boxVolume / (shelfVolume * Layout.count),
+      fill: boxVolume / allVolume,
     };
 
     return {
@@ -233,7 +247,7 @@ const Allocate = (function () {
     rec.sections.forEach(function (sec, i) {
       const s = skus[sec.sku];
       if (!sec.boxes || !hasSize(s)) return;
-      const packed = allocation.packIn(sec.packLen, boxOf(s));
+      const packed = allocation.packIn(sec.packLen, boxOf(s), rec.shelf.h);
       const all = Packer.placements(packed.blocks)
         .sort((a, b) => a.z - b.z || a.y - b.y || a.x - b.x)
         .slice(0, sec.boxes);

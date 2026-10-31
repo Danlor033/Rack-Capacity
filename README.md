@@ -6,7 +6,8 @@ Two things in one page:
   shelf, how many boxes, and how they sit on it.
 - **Calculator** — type one box size, get how many fit in a rack and how.
 
-Every shelf is 240 × 120 × 85 cm (L × W × H).
+Every shelf is 240 × 120 cm (L × W). Layers 1 and 2 are 85 cm tall, and
+Layer 3, the top, is 140 cm.
 
 ## The 4KB racks
 
