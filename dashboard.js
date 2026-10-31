@@ -1324,7 +1324,8 @@ const Dashboard = (function () {
   const STOCK_FEED = "jsterp-4kb";
   const STOCK_STALE = 2 * 60 * 1000;
   const STOCK_DOWN = 10 * 60 * 1000;
-  let stockNote = null;
+  const STOCK_POLL = 20 * 1000;
+  let stockNote = null, stockSeen = 0;
 
   function ago(ms) {
     const sec = Math.max(0, Math.round(ms / 1000));
@@ -1343,7 +1344,7 @@ const Dashboard = (function () {
       el.stockSync.classList.add("bad-text", "stock-down");
       return;
     }
-    const age = Date.now() - new Date(n.synced_at).getTime();
+    const age = Date.now() - (stockSeen || new Date(n.synced_at).getTime());
     const info = n.info || {};
     let text;
     if (!n.ok) {
@@ -1360,19 +1361,40 @@ const Dashboard = (function () {
     el.stockSync.classList.toggle("stock-down", !n.ok || age > STOCK_DOWN);
   }
 
+  // Age counts from when this page saw a note change, so a PC whose clock
+  // runs ahead or behind still reads true. Before the first change there is
+  // only the note's own time to go on.
+  function takeStockNote(note) {
+    if (stockNote && note && note.synced_at !== stockNote.synced_at) stockSeen = Date.now();
+    stockNote = note;
+  }
+
   async function loadStockNote() {
     try {
-      stockNote = await DB.syncs.get(STOCK_FEED);
+      const was = stockNote && stockNote.synced_at;
+      takeStockNote(await DB.syncs.get(STOCK_FEED));
+      // A live connection can die without saying so, so the numbers follow
+      // the note as well.
+      const info = (stockNote && stockNote.info) || {};
+      if (state.data && was && stockNote.synced_at !== was && info.changed) wantLive("skus");
     } catch (e) {
       console.error(e);
     }
     renderStockSync();
   }
 
+  // The note is read here as well as pushed: a laptop that slept, or a
+  // network that blocks the live connection, gets no push and no word of it.
   function startStockSync() {
     if (!DB.configured()) return;
     loadStockNote();
     setInterval(renderStockSync, 10 * 1000);
+    setInterval(loadStockNote, STOCK_POLL);
+    document.addEventListener("visibilitychange", function () {
+      if (document.hidden) return;
+      loadStockNote();
+      if (state.data) wantLive("skus");
+    });
   }
 
   // The bookmark, for running the feed from a JSTERP tab in a browser without
@@ -1436,7 +1458,7 @@ const Dashboard = (function () {
       if (!row.import_id || row.import_id === id) wantLive("skus");
     } else if (table === DB.tables.sync) {
       if (row.name === STOCK_FEED && p.new && p.new.name) {
-        stockNote = p.new;
+        takeStockNote(p.new);
         renderStockSync();
       }
     }
